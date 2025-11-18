@@ -8,7 +8,7 @@
 #define STR_SIZE 100
 
 #define POSSIBLE_DIRECTIONS_LEN 4
-#define POSSIBLE_DIRECTIONS {(Direction) {0, 1},(Direction) {1, 0},(Direction) {0, -1},(Direction) {-1, 0},}
+#define POSSIBLE_DIRECTIONS {(Direction) {-1, 0},(Direction) {0, 1},(Direction) {1, 0},(Direction) {0, -1},} // UP, RIGHT, LEFT DOWN
 #define NO_DIRECTION (Direction) {INT_MIN, INT_MIN}
 #define IT_HAS_DIRECTION(d) NO_DIRECTION.x != d.x && NO_DIRECTION.y != d.y
 
@@ -88,14 +88,14 @@ int input_file_to_env(char* file_path, Environment *env_buf) {
     return 0;
 }
 
-void possible_adjacent_cells_rabbit(Environment e, int x, int y, Direction d_buf[4]) {
+void possible_adjacent_cells_rabbit(Environment e, int x, int y, Direction d_buf[POSSIBLE_DIRECTIONS_LEN]) {
     assert(e.m[x][y] == Rabbit);
 
-    Direction d[4] = POSSIBLE_DIRECTIONS;
-    if (y == 0)       d[0] = NO_DIRECTION;
-    if (x == e.c - 1) d[1] = NO_DIRECTION;
-    if (y == e.r - 1) d[2] = NO_DIRECTION;
-    if (x == 0)       d[3] = NO_DIRECTION;
+    Direction d[POSSIBLE_DIRECTIONS_LEN] = POSSIBLE_DIRECTIONS;
+    if (x == 0)       d[0] = NO_DIRECTION;
+    if (y == e.c - 1) d[1] = NO_DIRECTION;
+    if (x == e.r - 1) d[2] = NO_DIRECTION;
+    if (y == 0)       d[3] = NO_DIRECTION;
 
     for (int i = 0; i < POSSIBLE_DIRECTIONS_LEN; i++) {
         if (IT_HAS_DIRECTION(d[i]) && e.m[x + d[i].x][y + d[i].y] != None) d[i] = NO_DIRECTION;
@@ -140,5 +140,7 @@ int main(int argc, char** argv) {
     if (argc != 2) return 1;
     input_file_to_env(argv[1], &e);
     print_environment(e);
+    Direction d[POSSIBLE_DIRECTIONS_LEN];
+    possible_adjacent_cells_rabbit(e, 1, 5, d);
     return 0;
 }
