@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -6,12 +7,22 @@
 
 #define STR_SIZE 100
 
+#define POSSIBLE_DIRECTIONS_LEN 4
+#define POSSIBLE_DIRECTIONS {(Direction) {-1, 0},(Direction) {0, 1},(Direction) {1, 0},(Direction) {0, -1},} // UP, RIGHT, LEFT DOWN
+#define NO_DIRECTION (Direction) {INT_MIN, INT_MIN}
+#define IT_HAS_DIRECTION(d) NO_DIRECTION.x != d.x && NO_DIRECTION.y != d.y
+
 typedef enum {
     Rabbit,
     Fox,
     Rock,
     None
 } Cell;
+
+typedef struct {
+    int x;
+    int y;
+} Direction;
 
 typedef struct {
     int gen_proc_rabbits;
@@ -23,6 +34,13 @@ typedef struct {
     int n;
     Cell **m;
 } Environment;
+
+int input_file_to_env(char* file_path, Environment *env_buf);
+
+void print_environment(Environment e);
+Cell** allocate_empty_cell_matrix(int r, int c);
+
+Direction selecting_adjacent_cells(Environment e, int x, int y, Direction* d, int d_len);
 
 Cell** allocate_empty_cell_matrix(int r, int c) {
     Cell **m = (Cell**) malloc(sizeof(Cell*) * r);
@@ -70,6 +88,30 @@ int input_file_to_env(char* file_path, Environment *env_buf) {
     return 0;
 }
 
+void possible_adjacent_cells_rabbit(Environment e, int x, int y, Direction d_buf[POSSIBLE_DIRECTIONS_LEN]) {
+    assert(e.m[x][y] == Rabbit);
+
+    Direction d[POSSIBLE_DIRECTIONS_LEN] = POSSIBLE_DIRECTIONS;
+    if (x == 0)       d[0] = NO_DIRECTION;
+    if (y == e.c - 1) d[1] = NO_DIRECTION;
+    if (x == e.r - 1) d[2] = NO_DIRECTION;
+    if (y == 0)       d[3] = NO_DIRECTION;
+
+    for (int i = 0; i < POSSIBLE_DIRECTIONS_LEN; i++) {
+        if (IT_HAS_DIRECTION(d[i]) && e.m[x + d[i].x][y + d[i].y] != None) d[i] = NO_DIRECTION;
+        d_buf[i] = d[i];
+    }
+
+    printf("\n");
+
+    for (int i = 0; i < POSSIBLE_DIRECTIONS_LEN; i++) printf("x: %d, y: %d\n", d[i].x, d[i].y);
+}
+
+Direction selecting_adjacent_cells(Environment e, int x, int y, Direction* d, int d_len) {
+    int choosing_value = (e.n_gen + x + y) % d_len;
+    return d[choosing_value];
+}
+
 void print_environment(Environment e) {
     for (int i = 0; i < e.r; i++) {
         printf("\n");
@@ -85,7 +127,7 @@ void print_environment(Environment e) {
                     printf("F ");
                     break;
                 default:
-                    printf("  ");
+                    printf("_ ");
                     break;
             }
         }
@@ -98,5 +140,7 @@ int main(int argc, char** argv) {
     if (argc != 2) return 1;
     input_file_to_env(argv[1], &e);
     print_environment(e);
+    Direction d[POSSIBLE_DIRECTIONS_LEN];
+    possible_adjacent_cells_rabbit(e, 1, 5, d);
     return 0;
 }
