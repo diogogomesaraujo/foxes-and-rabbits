@@ -1,0 +1,4 @@
+use blocked approach for parallel
+each block has abstraction of ----> 1 block beyond border that is to be used to sync after
+
+sync should take abstractions and edges and maybe parallel maybe sequentially combine them for final resulting matrix
