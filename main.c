@@ -59,7 +59,7 @@ int input_file_to_env(char* file_path, Environment *env_buf) {
     FILE* file = fopen(file_path, "r");
 
     if (file == NULL) {
-        fprintf(stderr, "Couldn't open the file.");
+        fprintf(stderr, "Couldn't open the file.\n");
         return 1;
     }
 
@@ -73,7 +73,7 @@ int input_file_to_env(char* file_path, Environment *env_buf) {
         &(*env_buf).c,
         &(*env_buf).n
     ) == EOF) {
-        fprintf(stderr, "Couldn't parse the initial variables.");
+        fprintf(stderr, "Couldn't parse the initial variables.\n");
         return 1;
     }
 
@@ -97,7 +97,6 @@ Direction selecting_adjacent_cells(Environment e, int x, int y, Direction d[POSS
     if (d_len == 0) return NO_DIRECTION;
 
     int choosing_value = (e.n_gen + x + y) % d_len;
-    printf("Choosing Value: %d\n", choosing_value);
 
     int count = 0, cv_count = 0;
     while (count < POSSIBLE_DIRECTIONS_LEN) {
@@ -156,6 +155,36 @@ Direction select_fox_direction(Environment e, int x, int y) {
     return ed;
 }
 
+int next_gen(Environment *e_buf) {
+    Direction d_temp;
+
+    for (int i = 0; i < (*e_buf).r; i++) {
+        for (int j = 0; j < (*e_buf).c; j++) {
+            if ((*e_buf).m[i][j] == None || (*e_buf).m[i][j] == Rock) continue;
+            else if ((*e_buf).m[i][j] == Rabbit) {
+                d_temp = select_rabbit_direction(*e_buf, i, j);
+                // TODO: execute the move considering possible conflicts
+                if (IT_HAS_DIRECTION(d_temp)) {
+                    (*e_buf).m[i][j] = None;
+                    (*e_buf).m[i + d_temp.x][j + d_temp.y] = Rabbit;
+                }
+            }
+            else if ((*e_buf).m[i][j] == Fox) {
+                d_temp = select_fox_direction(*e_buf, i, j);
+                if (IT_HAS_DIRECTION(d_temp)) {
+                    (*e_buf).m[i][j] = None;
+                    (*e_buf).m[i + d_temp.x][j + d_temp.y] = Fox;
+                }
+            }
+            else return 1;
+        }
+    }
+
+    (*e_buf).n_gen++;
+
+    return 0;
+}
+
 void print_environment(Environment e) {
     for (int i = 0; i < e.r; i++) {
         printf("\n");
@@ -182,9 +211,11 @@ void print_environment(Environment e) {
 int main(int argc, char** argv) {
     Environment e;
     if (argc != 2) return 1;
-    input_file_to_env(argv[1], &e);
+    if (input_file_to_env(argv[1], &e) == 1) {
+        return 1;
+    }
     print_environment(e);
-    Direction d = select_fox_direction(e, 4, 4);
-    printf("Result: x: %d y: %d\n", d.x, d.y);
+    next_gen(&e);
+    print_environment(e);
     return 0;
 }
