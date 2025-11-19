@@ -8,7 +8,7 @@
 #define STR_SIZE 100
 
 #define POSSIBLE_DIRECTIONS_LEN 4
-#define POSSIBLE_DIRECTIONS {(Direction) {-1, 0},(Direction) {0, 1},(Direction) {1, 0},(Direction) {0, -1},} // UP, RIGHT, LEFT DOWN
+#define POSSIBLE_DIRECTIONS {(Direction) {-1, 0},(Direction) {0, 1},(Direction) {1, 0},(Direction) {0, -1}} // UP, RIGHT, LEFT DOWN
 #define NO_DIRECTION (Direction) {INT_MIN, INT_MIN}
 #define IT_HAS_DIRECTION(d) NO_DIRECTION.x != d.x && NO_DIRECTION.y != d.y
 
@@ -40,7 +40,9 @@ int input_file_to_env(char* file_path, Environment *env_buf);
 void print_environment(Environment e);
 Cell** allocate_empty_cell_matrix(int r, int c);
 
-Direction selecting_adjacent_cells(Environment e, int x, int y, Direction* d, int d_len);
+Direction selecting_adjacent_cells(Environment e, int x, int y, Direction* d);
+Direction select_fox_direction(Environment e, int x, int y);
+Direction select_rabbit_direction(Environment e, int x, int y);
 
 Cell** allocate_empty_cell_matrix(int r, int c) {
     Cell **m = (Cell**) malloc(sizeof(Cell*) * r);
@@ -88,7 +90,27 @@ int input_file_to_env(char* file_path, Environment *env_buf) {
     return 0;
 }
 
-void possible_adjacent_cells_rabbit(Environment e, int x, int y, Direction d_buf[POSSIBLE_DIRECTIONS_LEN]) {
+Direction selecting_adjacent_cells(Environment e, int x, int y, Direction d[POSSIBLE_DIRECTIONS_LEN]) {
+    int d_len = 0;
+    for (int i = 0; i < 4; i++) if (IT_HAS_DIRECTION(d[i])) d_len++;
+
+    if (d_len == 0) return NO_DIRECTION;
+
+    int choosing_value = (e.n_gen + x + y) % d_len;
+    printf("Choosing Value: %d\n", choosing_value);
+
+    int count = 0, cv_count = 0;
+    while (count < POSSIBLE_DIRECTIONS_LEN) {
+        if (cv_count == choosing_value && IT_HAS_DIRECTION(d[count])) break;
+        if (IT_HAS_DIRECTION(d[count])) cv_count++;
+
+        count++;
+    }
+
+    return d[count];
+}
+
+Direction select_rabbit_direction(Environment e, int x, int y) {
     assert(e.m[x][y] == Rabbit);
 
     Direction d[POSSIBLE_DIRECTIONS_LEN] = POSSIBLE_DIRECTIONS;
@@ -97,19 +119,41 @@ void possible_adjacent_cells_rabbit(Environment e, int x, int y, Direction d_buf
     if (x == e.r - 1) d[2] = NO_DIRECTION;
     if (y == 0)       d[3] = NO_DIRECTION;
 
-    for (int i = 0; i < POSSIBLE_DIRECTIONS_LEN; i++) {
+    for (int i = 0; i < POSSIBLE_DIRECTIONS_LEN; i++)
         if (IT_HAS_DIRECTION(d[i]) && e.m[x + d[i].x][y + d[i].y] != None) d[i] = NO_DIRECTION;
-        d_buf[i] = d[i];
-    }
 
-    printf("\n");
-
-    for (int i = 0; i < POSSIBLE_DIRECTIONS_LEN; i++) printf("x: %d, y: %d\n", d[i].x, d[i].y);
+    return selecting_adjacent_cells(e, x, y, d);
 }
 
-Direction selecting_adjacent_cells(Environment e, int x, int y, Direction* d, int d_len) {
-    int choosing_value = (e.n_gen + x + y) % d_len;
-    return d[choosing_value];
+
+Direction select_fox_direction(Environment e, int x, int y) {
+    assert(e.m[x][y] == Fox);
+
+    // logic for rabbits
+    Direction rabbit_dirs[POSSIBLE_DIRECTIONS_LEN] = POSSIBLE_DIRECTIONS;
+    if (x == 0)       rabbit_dirs[0] = NO_DIRECTION;
+    if (y == e.c - 1) rabbit_dirs[1] = NO_DIRECTION;
+    if (x == e.r - 1) rabbit_dirs[2] = NO_DIRECTION;
+    if (y == 0)       rabbit_dirs[3] = NO_DIRECTION;
+
+    for (int i = 0; i < POSSIBLE_DIRECTIONS_LEN; i++)
+        if (IT_HAS_DIRECTION(rabbit_dirs[i]) && e.m[x + rabbit_dirs[i].x][y + rabbit_dirs[i].y] != Rabbit) rabbit_dirs[i] = NO_DIRECTION;
+
+    Direction rd = selecting_adjacent_cells(e, x, y, rabbit_dirs);
+    if (IT_HAS_DIRECTION(rd)) return rd;
+
+    // logic for empty
+    Direction empty_dirs[POSSIBLE_DIRECTIONS_LEN] = POSSIBLE_DIRECTIONS;
+    if (x == 0)       empty_dirs[0] = NO_DIRECTION;
+    if (y == e.c - 1) empty_dirs[1] = NO_DIRECTION;
+    if (x == e.r - 1) empty_dirs[2] = NO_DIRECTION;
+    if (y == 0)       empty_dirs[3] = NO_DIRECTION;
+
+    for (int i = 0; i < POSSIBLE_DIRECTIONS_LEN; i++)
+        if (IT_HAS_DIRECTION(empty_dirs[i]) && e.m[x + empty_dirs[i].x][y + empty_dirs[i].y] != None) empty_dirs[i] = NO_DIRECTION;
+
+    Direction ed = selecting_adjacent_cells(e, x, y, empty_dirs);
+    return ed;
 }
 
 void print_environment(Environment e) {
@@ -140,7 +184,7 @@ int main(int argc, char** argv) {
     if (argc != 2) return 1;
     input_file_to_env(argv[1], &e);
     print_environment(e);
-    Direction d[POSSIBLE_DIRECTIONS_LEN];
-    possible_adjacent_cells_rabbit(e, 1, 5, d);
+    Direction d = select_fox_direction(e, 4, 4);
+    printf("Result: x: %d y: %d\n", d.x, d.y);
     return 0;
 }
