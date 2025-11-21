@@ -292,9 +292,6 @@ int main(int argc, char **argv) {
   if (input_file_to_env(argv[1], &e) == 1) {
     return 1;
   }
-  printf("Gen proc rabbits: %d\n", e.gen_proc_rabbits);
   print_environment(e);
-  Direction d = select_rabbit_direction(e, 0, 2);
-  printf("%d <--> %d \n", d.x, d.y);
   return 0;
 }
