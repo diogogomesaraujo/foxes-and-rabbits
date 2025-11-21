@@ -80,8 +80,20 @@ int destroy_cell_matrix(Cell **m, int r) {
   return 0;
 }
 
-int input_file_to_env(char *file_path, Environment *env_buf) {
-  FILE *file = fopen(file_path, "r");
+int copy_cell_matrix(Cell **m, Cell **m_buf, int r, int c) {
+    for (int i = 0; i < r; i++) memcpy(m_buf[i], m[i], sizeof(Cell) * c);
+    return 0;
+}
+
+int env_destroy(Environment e) {
+    if (e.m != NULL) {
+        destroy_cell_matrix(e.m, e.r);
+    }
+    return 0;
+}
+
+int input_file_to_env(char* file_path, Environment *env_buf) {
+    FILE* file = fopen(file_path, "r");
 
   if (file == NULL) {
     fprintf(stderr, "Couldn't open the file.\n");
@@ -98,7 +110,7 @@ int input_file_to_env(char *file_path, Environment *env_buf) {
 
   (*env_buf).g = 0;
   (*env_buf).m = allocate_empty_cell_matrix((*env_buf).r, (*env_buf).c);
-  char *line_temp = malloc(sizeof(int) * STR_SIZE);
+  char *line_temp = malloc(sizeof(char) * STR_SIZE);
   int x_temp, y_temp;
 
   while (fscanf(file, "%s %d %d", line_temp, &x_temp, &y_temp) != EOF) {
@@ -110,6 +122,7 @@ int input_file_to_env(char *file_path, Environment *env_buf) {
       (*env_buf).m[x_temp][y_temp] = cell_from_id(Fox);
   }
 
+  fclose(file);
   return 0;
 }
 
@@ -201,15 +214,54 @@ Direction select_fox_direction(Environment e, int x, int y) {
   return ed;
 }
 
+int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
+  Direction d = select_rabbit_direction(e, x, y);
+  if (IT_HAS_DIRECTION(d)) {
+    switch (copy[x + d.x][y + d.y].id) {
+        case Rabbit:
+            // if has greater proc age or same proc age and has less --> replace
+            if (e.m[x][y].age > copy[x + d.x][y + d.y].age) {
+                copy[x + d.x][y + d.y] = e.m[x][y];
+            }
+            break;
+
+    case None:
+      // else --> take position and increase (hunger)
+      copy[x + d.x][y + d.y] = e.m[x][y];
+      break;
+
+    default:
+      printf("single_rabbit_move entered unexpected case \n");
+      return 1;
+    }
+    copy[x][y] = cell_from_id(None);
+    if (e.m[x][y].age >= e.gen_proc_rabbits) {
+      copy[x + d.x][y + d.y].age = STARTING_AGE;
+      copy[x][y] = cell_from_id(Rabbit);
+    }
+
+    copy[x + d.x][y + d.y].age++;
+  }
+
+  // if does not have direction
+  else {
+      copy[x][y] = e.m[x][y];
+      copy[x][y].age++; // increase age --> update copy matrix
+  }
+
+  return 0;
+}
+
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
   Direction d = select_fox_direction(e, x, y);
+
   if (IT_HAS_DIRECTION(d)) {
     switch (copy[x + d.x][y + d.y].id) {
 
     case Rabbit:
       // eat --> replace and loose hunger
       copy[x + d.x][y + d.y] = e.m[x][y];
-      copy[x + d.x][y + d.y].gens_without_food = 0;
+      copy[x + d.x][y + d.y].gens_without_food = STARTING_AGE;
 
       break;
 
@@ -224,13 +276,13 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
       // else --> keep the one already occupying the Cell (the one that is
       // moving disappears)
 
-      copy[x + d.x][y + d.y]
-          .gens_without_food++; // increase gens_without_food (hunger)
+      copy[x + d.x][y + d.y].gens_without_food++; // increase gens_without_food (hunger)
       break;
 
     case None:
       // if about to die --> die and don't move
-      if (e.m[x][y].age >= e.gen_food_foxes) {
+      if (e.m[x][y].gens_without_food >= e.gen_food_foxes) {
+          copy[x][y] = cell_from_id(None);
         return 0;
       }
 
@@ -253,7 +305,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
 
     // if can procriate --> leave fox in place --> both procriation ages go to 0
     if (e.m[x][y].age >= e.gen_proc_foxes) {
-      copy[x + d.x][y + d.y].age = 0;
+      copy[x + d.x][y + d.y].age = STARTING_AGE;
       copy[x][y] = cell_from_id(Fox);
     }
 
@@ -275,15 +327,28 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
 }
 
 int next_gen(Environment *e_buf) {
-  // Direction d_temp;
   Cell **new_m = allocate_empty_cell_matrix((*e_buf).r, (*e_buf).c);
-  // use it_has_dir before moving
-  // fox
+  copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
 
-  // rabit
+  // rabbit
+  for (int i = 0; i < (*e_buf).r; i++) {
+      for (int j = 0; j < (*e_buf).c; j++) {
+          if ((*e_buf).m[i][j].id == Rabbit) single_rabbit_move((*e_buf), new_m, i, j);
+      }
+  }
+
+  copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
+
+  //fox
+  for (int i = 0; i < (*e_buf).r; i++) {
+      for (int j = 0; j < (*e_buf).c; j++) {
+          if ((*e_buf).m[i][j].id == Fox) single_fox_move((*e_buf), new_m, i, j);
+      }
+  }
 
   destroy_cell_matrix((*e_buf).m, (*e_buf).r);
   (*e_buf).m = new_m;
+
   (*e_buf).g++;
 
   // check fox died against original matrix pos (if rabbit --> survive, else -->
@@ -324,5 +389,9 @@ int main(int argc, char **argv) {
     return 1;
   }
   print_environment(e);
+  for (int i = 0; i < e.n_gen; i++) {
+      next_gen(&e);
+      print_environment(e);
+  }
   return 0;
 }
