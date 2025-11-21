@@ -231,6 +231,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
     case None:
       // if about to die --> die and don't move
       if (e.m[x][y].age >= e.gen_food_foxes) {
+        copy[x][y] = cell_from_id(None);
         return 0;
       }
 
