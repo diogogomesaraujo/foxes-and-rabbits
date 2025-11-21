@@ -201,44 +201,75 @@ Direction select_fox_direction(Environment e, int x, int y) {
   return ed;
 }
 
-int single_fox_move(Environment e, Cell **m, int x, int y) {
-  // have to see if in place --->
-  //                              if in place just be and age --> maybe die, so
-  //                              skip to ---> **
+int single_fox_move(Environment e, Cell **copy, int x, int y) {
   Direction d = select_fox_direction(e, x, y);
-  Cell next = m[x + d.x][y + d.y];
-  switch (m[x + d.x][y + d.y].id) {
-  case Rabbit:
-    // eat --> replace
-    m[x + d.x][y + d.y] = e.m[x][y];
-    // gens without food goes to 0
-    break;
-  case Fox:
-    // compare with pos in aux matrix -->
-    //                                  if has greater proc age --> replace
-    //
-    //                                  else if same proc age and has less
-    //                                  hunger --> replace else --> keep the one
-    //                                  in aux matrix pos (the one that is
-    //                                  moving disappears)
-    // increase gen_food_foxes (hunger)
-    break;
-  case None:
-    // if about to die --> die and don't move
-    //
-    // else --> take position and increase gen_food_foxes (hunger)
-    break;
-  default:
-    break;
+  if (IT_HAS_DIRECTION(d)) {
+    switch (copy[x + d.x][y + d.y].id) {
+
+    case Rabbit:
+      // eat --> replace and loose hunger
+      copy[x + d.x][y + d.y] = e.m[x][y];
+      copy[x + d.x][y + d.y].gens_without_food = 0;
+
+      break;
+
+    case Fox:
+      // if has greater proc age or same proc age and has less --> replace
+      if (e.m[x][y].age > copy[x + d.x][y + d.y].age ||
+          (e.m[x][y].age == copy[x + d.x][y + d.y].age &&
+           e.m[x][y].gens_without_food <
+               copy[x + d.x][y + d.y].gens_without_food)) {
+        copy[x + d.x][y + d.y] = e.m[x][y]; // replace
+      }
+      // else --> keep the one already occupying the Cell (the one that is
+      // moving disappears)
+
+      copy[x + d.x][y + d.y]
+          .gens_without_food++; // increase gens_without_food (hunger)
+      break;
+
+    case None:
+      // if about to die --> die and don't move
+      if (e.m[x][y].age >= e.gen_food_foxes) {
+        return 0;
+      }
+
+      // else --> take position and increase (hunger)
+      else {
+        copy[x + d.x][y + d.y] = e.m[x][y];
+        copy[x + d.x][y + d.y].gens_without_food++;
+      }
+      break;
+
+    default:
+      printf("single_fox_move entered unexpected case \n");
+      return 1;
+    }
+
+    // copy[x + d.x][y + d.y] is already correctly updated at this step
+    // and erase always prev pos
+
+    copy[x][y] = cell_from_id(None);
+
+    // if can procriate --> leave fox in place --> both procriation ages go to 0
+    if (e.m[x][y].age >= e.gen_proc_foxes) {
+      copy[x + d.x][y + d.y].age = 0;
+      copy[x][y] = cell_from_id(Fox);
+    }
+
+    copy[x + d.x][y + d.y].age++; // increase age --> update copy matrix
   }
-  // if can procriate --> leave fox in place --> both procriation ages go to 0
-  // (new and old fox)
 
-  // **
-
-  // if gens without food == gen food foxes --> die
-  //
-  // else --> age
+  // if does not have direction
+  else {
+    // age or die logic for fox that stayed in-place
+    if (e.m[x][y].gens_without_food >= e.gen_food_foxes) {
+      copy[x][y] = cell_from_id(None); // die
+    } else {
+      copy[x][y] = e.m[x][y];
+      copy[x][y].age++; // increase age --> update copy matrix
+    }
+  }
 
   return 0;
 }
