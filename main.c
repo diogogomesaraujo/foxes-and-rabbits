@@ -7,6 +7,7 @@
 
 #define STR_SIZE 100
 #define STARTING_AGE 0
+#define STARTING_GENS_WITHOUT_FOOD 1
 
 #define POSSIBLE_DIRECTIONS_LEN 4
 #define POSSIBLE_DIRECTIONS                                                    \
@@ -42,24 +43,16 @@ typedef struct {
 } Environment;
 
 int input_file_to_env(char *file_path, Environment *env_buf);
-
 void print_environment(Environment e);
 Cell **allocate_empty_cell_matrix(int r, int c);
+
+Cell cell_from_id(CellID id);
 
 Direction selecting_adjacent_cells(Environment e, int x, int y, Direction *d);
 Direction select_fox_direction(Environment e, int x, int y);
 Direction select_rabbit_direction(Environment e, int x, int y);
 
-Cell cell_from_id(CellID id);
-
-int max(int a, int b) {
-  if (a > b)
-    return a;
-  else
-    return b;
-}
-
-Cell cell_from_id(CellID id) { return (Cell){id, STARTING_AGE, STARTING_AGE}; }
+Cell cell_from_id(CellID id) { return (Cell){id, STARTING_AGE, STARTING_GENS_WITHOUT_FOOD}; }
 
 Cell **allocate_empty_cell_matrix(int r, int c) {
   Cell **m = (Cell **)malloc(sizeof(Cell *) * r);
@@ -126,8 +119,7 @@ int input_file_to_env(char* file_path, Environment *env_buf) {
   return 0;
 }
 
-Direction selecting_adjacent_cells(Environment e, int x, int y,
-                                   Direction d[POSSIBLE_DIRECTIONS_LEN]) {
+Direction selecting_adjacent_cells(Environment e, int x, int y, Direction d[POSSIBLE_DIRECTIONS_LEN]) {
   int d_len = 0;
   for (int i = 0; i < 4; i++)
     if (IT_HAS_DIRECTION(d[i]))
@@ -236,7 +228,7 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
     }
     copy[x][y] = cell_from_id(None);
     if (e.m[x][y].age >= e.gen_proc_rabbits) {
-      copy[x + d.x][y + d.y].age = STARTING_AGE;
+      copy[x + d.x][y + d.y].age = STARTING_AGE - 1; // spaggethi logic
       copy[x][y] = cell_from_id(Rabbit);
     }
 
@@ -261,7 +253,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
     case Rabbit:
       // eat --> replace and loose hunger
       copy[x + d.x][y + d.y] = e.m[x][y];
-      copy[x + d.x][y + d.y].gens_without_food = STARTING_AGE;
+      copy[x + d.x][y + d.y].gens_without_food = STARTING_GENS_WITHOUT_FOOD;
 
       break;
 
@@ -305,7 +297,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
 
     // if can procriate --> leave fox in place --> both procriation ages go to 0
     if (e.m[x][y].age >= e.gen_proc_foxes) {
-      copy[x + d.x][y + d.y].age = STARTING_AGE;
+        copy[x + d.x][y + d.y].age = STARTING_AGE - 1; // spaggethi logic
       copy[x][y] = cell_from_id(Fox);
     }
 
@@ -333,7 +325,9 @@ int next_gen(Environment *e_buf) {
   // rabbit
   for (int i = 0; i < (*e_buf).r; i++) {
       for (int j = 0; j < (*e_buf).c; j++) {
-          if ((*e_buf).m[i][j].id == Rabbit) single_rabbit_move((*e_buf), new_m, i, j);
+          if ((*e_buf).m[i][j].id == Rabbit) {
+              single_rabbit_move((*e_buf), new_m, i, j);
+          }
       }
   }
 
@@ -342,7 +336,9 @@ int next_gen(Environment *e_buf) {
   //fox
   for (int i = 0; i < (*e_buf).r; i++) {
       for (int j = 0; j < (*e_buf).c; j++) {
-          if ((*e_buf).m[i][j].id == Fox) single_fox_move((*e_buf), new_m, i, j);
+          if ((*e_buf).m[i][j].id == Fox) {
+              single_fox_move((*e_buf), new_m, i, j);
+          }
       }
   }
 
@@ -358,7 +354,7 @@ int next_gen(Environment *e_buf) {
 }
 
 void print_environment(Environment e) {
-  printf("Gen: %d", e.g);
+  printf("Gen: %d ", e.g);
   for (int i = 0; i < e.r; i++) {
     printf("\n");
     for (int j = 0; j < e.c; j++) {
