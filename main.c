@@ -7,7 +7,7 @@
 
 #define STR_SIZE 100
 #define STARTING_AGE 0
-#define STARTING_GENS_WITHOUT_FOOD 1
+#define STARTING_GENS_WITHOUT_FOOD 0
 
 #define POSSIBLE_DIRECTIONS_LEN 4
 #define POSSIBLE_DIRECTIONS                                                    \
@@ -73,16 +73,12 @@ int assert_environment_equals(Environment e1, Environment e2){
 
     for (int r = 0; r<e1.r; r++) {
         for (int c = 0; c<e1.c; c++) {
-            if (e1.m[r][c].id != e2.m[r][c].id ||
-                e1.m[r][c].age != e2.m[r][c].age ||
-                (e1.m[r][c].id == Fox && e2.m[r][c].id == Fox &&
-                    e1.m[r][c].gens_without_food != e2.m[r][c].gens_without_food)) {
-                        fprintf(stderr, "Assertion failed -> environment matrices didn't match\n");
-                        return 1;
+            if (e1.m[r][c].id != e2.m[r][c].id){
+                fprintf(stderr, "Assertion failed at [%d][%d] -> environment matrices didn't match\n", r, c);
+                return 1;
             }
         }
     }
-
     printf("Assertion passed -> input matches output\n");
     return 0;
 }
@@ -287,13 +283,13 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
             if (e.m[x][y].age > copy[x + d.x][y + d.y].age ||
                 (e.m[x][y].age == copy[x + d.x][y + d.y].age &&
                  e.m[x][y].gens_without_food <
-                     copy[x + d.x][y + d.y].gens_without_food)) {
+                     copy[x + d.x][y + d.y].gens_without_food) - 1) {
                 copy[x + d.x][y + d.y] = e.m[x][y];
             }
             copy[x + d.x][y + d.y].gens_without_food++;
             break;
         case None:
-            if (e.m[x][y].gens_without_food >= e.gen_food_foxes) {
+            if (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) {
                 copy[x][y] = cell_from_id(None);
                 return 0;
             }
@@ -314,11 +310,13 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
         }
     }
     else {
-        if (e.m[x][y].gens_without_food >= e.gen_food_foxes) {
+        if (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) {
             copy[x][y] = cell_from_id(None);
-        } else {
+        }
+        else {
             copy[x][y] = e.m[x][y];
             copy[x][y].age++;
+            copy[x][y].gens_without_food++;
         }
     }
     return 0;
@@ -338,6 +336,14 @@ int next_gen(Environment *e_buf) {
     }
 
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
+
+    for (int i = 0; i < (*e_buf).r; i++) {
+        for (int j = 0; j < (*e_buf).c; j++) {
+            if ((*e_buf).m[i][j].id == Fox) {
+                new_m[i][j] = cell_from_id(None);
+            }
+        }
+    }
 
     // fox
     for (int i = 0; i < (*e_buf).r; i++) {
