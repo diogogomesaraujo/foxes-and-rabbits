@@ -12,7 +12,7 @@
 #define POSSIBLE_DIRECTIONS_LEN 4
 #define POSSIBLE_DIRECTIONS                                                    \
     {(Direction){-1, 0}, (Direction){0, 1}, (Direction){1, 0},                 \
-     (Direction){0, -1}} // UP, RIGHT, LEFT DOWN
+     (Direction){0, -1}} // UP, RIGHT, LEFT, DOWN
 #define NO_DIRECTION                                                           \
     (Direction) { INT_MIN, INT_MIN }
 #define IT_HAS_DIRECTION(d) NO_DIRECTION.x != d.x &&NO_DIRECTION.y != d.y
@@ -44,6 +44,7 @@ typedef struct {
 
 int input_file_to_env(char *file_path, Environment *env_buf);
 void print_environment(Environment e);
+void print_matrix(Cell **m, int r, int c);
 Cell **allocate_empty_cell_matrix(int r, int c);
 int assert_environment_equals(Environment e1, Environment e2);
 
@@ -248,6 +249,7 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
         case Rabbit:
             if (e.m[x][y].age > copy[x + d.x][y + d.y].age) {
                 copy[x + d.x][y + d.y] = e.m[x][y];
+                copy[x + d.x][y + d.y].age++;
             }
             break;
         case None:
@@ -274,20 +276,19 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
     Direction d = select_fox_direction(e, x, y);
     if (IT_HAS_DIRECTION(d)) {
-        switch (copy[x + d.x][y + d.y].id) {
+        switch (e.m[x + d.x][y + d.y].id) {
         case Rabbit:
             copy[x + d.x][y + d.y] = e.m[x][y];
             copy[x + d.x][y + d.y].gens_without_food = STARTING_GENS_WITHOUT_FOOD;
             copy[x + d.x][y + d.y].age++;
             break;
         case Fox:
-            if (e.m[x][y].age > copy[x + d.x][y + d.y].age ||
+            if (e.m[x][y].age < copy[x + d.x][y + d.y].age ||
                 (e.m[x][y].age == copy[x + d.x][y + d.y].age &&
                  e.m[x][y].gens_without_food <
-                     copy[x + d.x][y + d.y].gens_without_food) - 1) {
-                copy[x + d.x][y + d.y] = e.m[x][y];
+                     copy[x + d.x][y + d.y].gens_without_food)) {
+                copy[x + d.x][y + d.y].gens_without_food = e.m[x][y].gens_without_food + 1;
             }
-            copy[x + d.x][y + d.y].gens_without_food++;
             break;
         case None:
             if (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) {
@@ -297,8 +298,8 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
             else {
                 copy[x + d.x][y + d.y] = e.m[x][y];
                 copy[x + d.x][y + d.y].gens_without_food++;
+                copy[x + d.x][y + d.y].age++;
             }
-            copy[x + d.x][y + d.y].age++;
             break;
         default:
             fprintf(stderr,"single_fox_move entered unexpected case\n");
@@ -338,14 +339,6 @@ int next_gen(Environment *e_buf) {
 
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
-    for (int i = 0; i < (*e_buf).r; i++) {
-        for (int j = 0; j < (*e_buf).c; j++) {
-            if ((*e_buf).m[i][j].id == Fox) {
-                new_m[i][j] = cell_from_id(None);
-            }
-        }
-    }
-
     // fox
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
@@ -359,83 +352,141 @@ int next_gen(Environment *e_buf) {
     (*e_buf).m = new_m;
 
     (*e_buf).g++;
-
-    int count = 0;
-    for (int i = 0; i < (*e_buf).r; i++) {
-        for (int j = 0; j < (*e_buf).c; j++) {
-            if ((*e_buf).m[i][j].id != None) {
-                count++;
-            }
-        }
-    }
-    (*e_buf).n = count; // update entity count
-
-    // check fox died against original matrix pos (if rabbit --> survive, else -->
-    // die)
-
     return 0;
 }
 
-void print_environment(Environment e) {
-    printf("Generation %d\n", e.g);
+int update_n(Environment *e_buf) {
+    (*e_buf).n = 0;
+    for (int i = 0; i < (*e_buf).r; i++) {
+        for (int j = 0; j < (*e_buf).c; j++) {
+            if ((*e_buf).m[i][j].id != None) (*e_buf).n++;
+        }
+    }
+    return 0;
+}
 
-    for (int i = 0; i < e.r; i++) {
-        for (int j = 0; j < e.c; j++) {
-            switch (e.m[i][j].id) {
+void print_matrix(Cell **m, int r, int c) {
+    for (int i = 0; i < r; i++) {
+        for (int j = 0; j < c; j++) {
+            switch (m[i][j].id) {
             case Rabbit:
-                printf("R ");
+                printf("R");
                 break;
             case Rock:
-                printf("* ");
+                printf("*");
                 break;
             case Fox:
-                printf("F ");
+                printf("F");
                 break;
             default:
-                printf("_ ");
+                printf(" ");
                 break;
             }
         }
         printf("  ");
 
-        for (int j = 0; j < e.c; j++) {
-            switch (e.m[i][j].id) {
+        for (int j = 0; j < c; j++) {
+            switch (m[i][j].id) {
             case Rabbit:
-                printf("%d ", e.m[i][j].age);
+                printf("%d", m[i][j].age);
                 break;
             case Rock:
-                printf("* ");
+                printf("*");
                 break;
             case Fox:
-                printf("%d ", e.m[i][j].age);
+                printf("%d", m[i][j].age);
                 break;
             default:
-                printf("_ ");
+                printf(" ");
                 break;
             }
         }
         printf("  ");
 
-        for (int j = 0; j < e.c; j++) {
-            switch (e.m[i][j].id) {
+        for (int j = 0; j < c; j++) {
+            switch (m[i][j].id) {
             case Rabbit:
-                printf("R ");
+                printf("R");
                 break;
             case Rock:
-                printf("* ");
+                printf("*");
                 break;
             case Fox:
-                printf("%d ", e.m[i][j].gens_without_food);
+                printf("%d", m[i][j].gens_without_food);
                 break;
             default:
-                printf("_ ");
+                printf(" ");
                 break;
             }
         }
         printf("\n");
     }
 
-    printf("\n");
+    for (int i = 0; i < 3 * r + 4; i++) printf("_");
+    printf("\n\n");
+}
+
+void print_environment(Environment e) {
+    printf("Generation %d\n\n", e.g);
+
+    for (int i = 0; i < e.r; i++) {
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                printf("R");
+                break;
+            case Rock:
+                printf("*");
+                break;
+            case Fox:
+                printf("F");
+                break;
+            default:
+                printf(" ");
+                break;
+            }
+        }
+        printf("  ");
+
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                printf("%d", e.m[i][j].age);
+                break;
+            case Rock:
+                printf("*");
+                break;
+            case Fox:
+                printf("%d", e.m[i][j].age);
+                break;
+            default:
+                printf(" ");
+                break;
+            }
+        }
+        printf("  ");
+
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                printf("R");
+                break;
+            case Rock:
+                printf("*");
+                break;
+            case Fox:
+                printf("%d", e.m[i][j].gens_without_food);
+                break;
+            default:
+                printf(" ");
+                break;
+            }
+        }
+        printf("\n");
+    }
+
+    for (int i = 0; i < 3 * e.r + 4; i++) printf("_");
+    printf("\n\n");
 }
 
 int main(int argc, char **argv) {
@@ -450,7 +501,7 @@ int main(int argc, char **argv) {
         next_gen(&e);
         print_environment(e);
     }
-
+    update_n(&e);
     Environment out;
     if (input_file_to_env(argv[2], &out) == 1) {
         return 1;
