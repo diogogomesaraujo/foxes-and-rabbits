@@ -276,38 +276,65 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
     Direction d = select_fox_direction(e, x, y);
     if (IT_HAS_DIRECTION(d)) {
-        switch (e.m[x + d.x][y + d.y].id) {
+        int dest_x = x + d.x;
+        int dest_y = y + d.y;
+
+        switch (e.m[dest_x][dest_y].id) {
         case Rabbit:
-            copy[x + d.x][y + d.y] = e.m[x][y];
-            copy[x + d.x][y + d.y].gens_without_food = STARTING_GENS_WITHOUT_FOOD;
-            copy[x + d.x][y + d.y].age++;
-            break;
-        case Fox:
-            if (e.m[x][y].age < copy[x + d.x][y + d.y].age ||
-                (e.m[x][y].age == copy[x + d.x][y + d.y].age &&
-                 e.m[x][y].gens_without_food <
-                     copy[x + d.x][y + d.y].gens_without_food)) {
-                copy[x + d.x][y + d.y].gens_without_food = e.m[x][y].gens_without_food + 1;
+            if (copy[dest_x][dest_y].id == Fox) {
+                int existing_fox_original_age = copy[dest_x][dest_y].age - 1;
+                if (e.m[x][y].age > existing_fox_original_age ||
+                    (e.m[x][y].age == existing_fox_original_age &&
+                     e.m[x][y].gens_without_food < 0)) {
+                    copy[dest_x][dest_y] = e.m[x][y];
+                    copy[dest_x][dest_y].gens_without_food = STARTING_GENS_WITHOUT_FOOD;
+                    copy[dest_x][dest_y].age++;
+                }
+            } else {
+                copy[dest_x][dest_y] = e.m[x][y];
+                copy[dest_x][dest_y].gens_without_food = STARTING_GENS_WITHOUT_FOOD;
+                copy[dest_x][dest_y].age++;
             }
             break;
+
         case None:
             if (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) {
                 copy[x][y] = cell_from_id(None);
                 return 0;
             }
-            else {
-                copy[x + d.x][y + d.y] = e.m[x][y];
-                copy[x + d.x][y + d.y].gens_without_food++;
-                copy[x + d.x][y + d.y].age++;
+
+            if (copy[dest_x][dest_y].id == Fox) {
+                int existing_fox_original_age = copy[dest_x][dest_y].age - 1;
+                int existing_fox_original_hunger = copy[dest_x][dest_y].gens_without_food - 1;
+
+                if (e.m[x][y].age > existing_fox_original_age ||
+                    (e.m[x][y].age == existing_fox_original_age &&
+                     e.m[x][y].gens_without_food < existing_fox_original_hunger)) {
+                    copy[dest_x][dest_y] = e.m[x][y];
+                    copy[dest_x][dest_y].gens_without_food++;
+                    copy[dest_x][dest_y].age++;
+                }
+            } else {
+                copy[dest_x][dest_y] = e.m[x][y];
+                copy[dest_x][dest_y].gens_without_food++;
+                copy[dest_x][dest_y].age++;
             }
             break;
+
         default:
             fprintf(stderr,"single_fox_move entered unexpected case\n");
             return 1;
         }
-        copy[x][y] = cell_from_id(None);
-        if (copy[x + d.x][y + d.y].age > e.gen_proc_foxes) {
-            copy[x + d.x][y + d.y].age = STARTING_AGE;
+
+        if (e.m[x][y].age == copy[x][y].age &&
+            e.m[x][y].gens_without_food == copy[x][y].gens_without_food &&
+            e.m[x][y].id == copy[x][y].id) {
+            copy[x][y] = cell_from_id(None);
+        }
+
+        if (copy[dest_x][dest_y].id == Fox &&
+            copy[dest_x][dest_y].age > e.gen_proc_foxes) {
+            copy[dest_x][dest_y].age = STARTING_AGE;
             copy[x][y] = cell_from_id(Fox);
         }
     }
