@@ -45,12 +45,51 @@ typedef struct {
 int input_file_to_env(char *file_path, Environment *env_buf);
 void print_environment(Environment e);
 Cell **allocate_empty_cell_matrix(int r, int c);
+int assert_environment_equals(Environment e1, Environment e2);
 
 Cell cell_from_id(CellID id);
+
 
 Direction selecting_adjacent_cells(Environment e, int x, int y, Direction *d);
 Direction select_fox_direction(Environment e, int x, int y);
 Direction select_rabbit_direction(Environment e, int x, int y);
+
+int assert_environment_equals(Environment e1, Environment e2){
+    if (e1.gen_food_foxes != e2.gen_food_foxes ||
+        e1.gen_proc_foxes != e2.gen_proc_foxes ||
+        e1.gen_proc_rabbits != e2.gen_proc_rabbits ||
+        e1.c != e2.c ||
+        e1.r != e2.r ||
+        e1.n != e2.n){
+            fprintf(stderr, "Assertion failed on int values comparisson\n");
+            fprintf(stderr, "e1: gpr=%d gpf=%d gff=%d r=%d c=%d n=%d\n",
+                    e1.gen_proc_rabbits, e1.gen_proc_foxes, e1.gen_food_foxes,
+                    e1.r, e1.c, e1.n);
+            fprintf(stderr, "e2: gpr=%d gpf=%d gff=%d r=%d c=%d n=%d\n",
+                    e2.gen_proc_rabbits, e2.gen_proc_foxes, e2.gen_food_foxes,
+                    e2.r, e2.c, e2.n);
+            return 1;
+    }
+
+    for (int r = 0; r<e1.r; r++) {
+        for (int c = 0; c<e1.c; c++) {
+            if (e1.m[r][c].id != e2.m[r][c].id ||
+                e1.m[r][c].age != e2.m[r][c].age ||
+                (e1.m[r][c].id == Fox && e2.m[r][c].id == Fox &&
+                    e1.m[r][c].gens_without_food != e2.m[r][c].gens_without_food)) {
+                        fprintf(stderr, "Assertion failed at [%d][%d]\n", r, c);
+                        fprintf(stderr, "e1: id=%d age=%d gwf=%d\n",
+                                e1.m[r][c].id, e1.m[r][c].age, e1.m[r][c].gens_without_food);
+                        fprintf(stderr, "e2: id=%d age=%d gwf=%d\n",
+                                e2.m[r][c].id, e2.m[r][c].age, e2.m[r][c].gens_without_food);
+                        return 1;
+            }
+        }
+    }
+
+    printf("Assertion passed -> input matches output\n");
+    return 0;
+}
 
 Cell cell_from_id(CellID id) {
     return (Cell){id, STARTING_AGE, STARTING_GENS_WITHOUT_FOOD};
@@ -223,15 +262,15 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
             copy[x + d.x][y + d.y] = e.m[x][y];
             break;
         default:
-            printf("single_rabbit_move entered unexpected case \n");
+            fprintf(stderr,"single_rabbit_move entered unexpected case\n");
             return 1;
         }
         copy[x][y] = cell_from_id(None);
-        if (e.m[x][y].age >= e.gen_proc_rabbits) {
-            copy[x + d.x][y + d.y].age = STARTING_AGE - 1; // spaggethi logic
+        copy[x + d.x][y + d.y].age++;
+        if (copy[x + d.x][y + d.y].age > e.gen_proc_rabbits) {
+            copy[x + d.x][y + d.y].age = STARTING_AGE;
             copy[x][y] = cell_from_id(Rabbit);
         }
-        copy[x + d.x][y + d.y].age++;
     }
     else {
         copy[x][y] = e.m[x][y];
@@ -253,10 +292,9 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
                 (e.m[x][y].age == copy[x + d.x][y + d.y].age &&
                  e.m[x][y].gens_without_food <
                      copy[x + d.x][y + d.y].gens_without_food)) {
-                copy[x + d.x][y + d.y] = e.m[x][y]; // replace
+                copy[x + d.x][y + d.y] = e.m[x][y];
             }
-            copy[x + d.x][y + d.y]
-                .gens_without_food++;
+            copy[x + d.x][y + d.y].gens_without_food++;
             break;
         case None:
             if (e.m[x][y].gens_without_food >= e.gen_food_foxes) {
@@ -269,15 +307,15 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
             }
             break;
         default:
-            printf("single_fox_move entered unexpected case \n");
+            fprintf(stderr,"single_fox_move entered unexpected case\n");
             return 1;
         }
         copy[x][y] = cell_from_id(None);
-        if (e.m[x][y].age >= e.gen_proc_foxes) {
-            copy[x + d.x][y + d.y].age = STARTING_AGE - 1; // spaggethi logic
+        copy[x + d.x][y + d.y].age++;
+        if (copy[x + d.x][y + d.y].age > e.gen_proc_foxes) {
+            copy[x + d.x][y + d.y].age = STARTING_AGE;
             copy[x][y] = cell_from_id(Fox);
         }
-        copy[x + d.x][y + d.y].age++;
     }
     else {
         if (e.m[x][y].gens_without_food >= e.gen_food_foxes) {
@@ -319,6 +357,16 @@ int next_gen(Environment *e_buf) {
 
     (*e_buf).g++;
 
+    int count = 0;
+    for (int i = 0; i < (*e_buf).r; i++) {
+        for (int j = 0; j < (*e_buf).c; j++) {
+            if ((*e_buf).m[i][j].id != None) {
+                count++;
+            }
+        }
+    }
+    (*e_buf).n = count; // update entity count
+
     // check fox died against original matrix pos (if rabbit --> survive, else -->
     // die)
 
@@ -351,7 +399,7 @@ void print_environment(Environment e) {
 
 int main(int argc, char **argv) {
     Environment e;
-    if (argc != 2)
+    if (argc != 3)
         return 1;
     if (input_file_to_env(argv[1], &e) == 1) {
         return 1;
@@ -361,5 +409,12 @@ int main(int argc, char **argv) {
         next_gen(&e);
         print_environment(e);
     }
+
+    Environment out;
+    if (input_file_to_env(argv[2], &out) == 1) {
+        return 1;
+    }
+    print_environment(out);
+    assert_environment_equals(e,out);
     return 0;
 }
