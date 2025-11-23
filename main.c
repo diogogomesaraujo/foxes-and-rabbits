@@ -394,7 +394,56 @@ void print_environment(Environment e) {
             }
         }
     }
+
     printf("\n\n");
+
+    //procreation age
+    printf("Procreation Age for Gen: %d ", e.g);
+    for (int i = 0; i < e.r; i++) {
+        printf("\n");
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                printf("%d", e.m[i][j].age);
+                break;
+            case Rock:
+                printf("* ");
+                break;
+            case Fox:
+                printf("%d", e.m[i][j].age);
+                break;
+            default:
+                printf("_ ");
+                break;
+            }
+        }
+    }
+
+    printf("\n\n");
+
+    //hunger
+    printf("Gens without food for Gen: %d ", e.g);
+    for (int i = 0; i < e.r; i++) {
+        printf("\n");
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                printf("R");
+                break;
+            case Rock:
+                printf("* ");
+                break;
+            case Fox:
+                printf("%d", e.m[i][j].gens_without_food);
+                break;
+            default:
+                printf("_ ");
+                break;
+            }
+        }
+    }
+
+    printf("\n\n\n\n\n\n");
 }
 
 int main(int argc, char **argv) {
