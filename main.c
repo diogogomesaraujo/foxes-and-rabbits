@@ -360,15 +360,7 @@ int next_gen(Environment *e_buf) {
 
     (*e_buf).g++;
 
-    int count = 0;
-    for (int i = 0; i < (*e_buf).r; i++) {
-        for (int j = 0; j < (*e_buf).c; j++) {
-            if ((*e_buf).m[i][j].id != None) {
-                count++;
-            }
-        }
-    }
-    (*e_buf).n = count; // update entity count
+    // update entity count
 
     // check fox died against original matrix pos (if rabbit --> survive, else -->
     // die)
@@ -449,6 +441,15 @@ int main(int argc, char **argv) {
     for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
         print_environment(e);
+    }
+
+    e.n=0;
+    for (int i = 0; i < e.r; i++) {
+        for (int j = 0; j < e.c; j++) {
+            if (e.m[i][j].id != None) {
+                e.n++;
+            }
+        }
     }
 
     Environment out;
