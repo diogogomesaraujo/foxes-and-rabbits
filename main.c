@@ -61,7 +61,7 @@ int assert_environment_equals(Environment e1, Environment e2){
         e1.c != e2.c ||
         e1.r != e2.r ||
         e1.n != e2.n){
-            fprintf(stderr, "Assertion failed on int values comparisson\n");
+            fprintf(stderr, "Assertion failed\n");
             fprintf(stderr, "e1: gpr=%d gpf=%d gff=%d r=%d c=%d n=%d\n",
                     e1.gen_proc_rabbits, e1.gen_proc_foxes, e1.gen_food_foxes,
                     e1.r, e1.c, e1.n);
@@ -77,11 +77,7 @@ int assert_environment_equals(Environment e1, Environment e2){
                 e1.m[r][c].age != e2.m[r][c].age ||
                 (e1.m[r][c].id == Fox && e2.m[r][c].id == Fox &&
                     e1.m[r][c].gens_without_food != e2.m[r][c].gens_without_food)) {
-                        fprintf(stderr, "Assertion failed at [%d][%d]\n", r, c);
-                        fprintf(stderr, "e1: id=%d age=%d gwf=%d\n",
-                                e1.m[r][c].id, e1.m[r][c].age, e1.m[r][c].gens_without_food);
-                        fprintf(stderr, "e2: id=%d age=%d gwf=%d\n",
-                                e2.m[r][c].id, e2.m[r][c].age, e2.m[r][c].gens_without_food);
+                        fprintf(stderr, "Assertion failed -> environment matrices didn't match\n");
                         return 1;
             }
         }
@@ -374,9 +370,9 @@ int next_gen(Environment *e_buf) {
 }
 
 void print_environment(Environment e) {
-    printf("Gen: %d ", e.g);
+    printf("Generation %d\n", e.g);
+
     for (int i = 0; i < e.r; i++) {
-        printf("\n");
         for (int j = 0; j < e.c; j++) {
             switch (e.m[i][j].id) {
             case Rabbit:
@@ -393,57 +389,46 @@ void print_environment(Environment e) {
                 break;
             }
         }
-    }
+        printf("  ");
 
-    printf("\n\n");
-
-    //procreation age
-    printf("Procreation Age for Gen: %d ", e.g);
-    for (int i = 0; i < e.r; i++) {
-        printf("\n");
         for (int j = 0; j < e.c; j++) {
             switch (e.m[i][j].id) {
             case Rabbit:
-                printf("%d", e.m[i][j].age);
+                printf("%d ", e.m[i][j].age);
                 break;
             case Rock:
                 printf("* ");
                 break;
             case Fox:
-                printf("%d", e.m[i][j].age);
+                printf("%d ", e.m[i][j].age);
                 break;
             default:
                 printf("_ ");
                 break;
             }
         }
-    }
+        printf("  ");
 
-    printf("\n\n");
-
-    //hunger
-    printf("Gens without food for Gen: %d ", e.g);
-    for (int i = 0; i < e.r; i++) {
-        printf("\n");
         for (int j = 0; j < e.c; j++) {
             switch (e.m[i][j].id) {
             case Rabbit:
-                printf("R");
+                printf("R ");
                 break;
             case Rock:
                 printf("* ");
                 break;
             case Fox:
-                printf("%d", e.m[i][j].gens_without_food);
+                printf("%d ", e.m[i][j].gens_without_food);
                 break;
             default:
                 printf("_ ");
                 break;
             }
         }
+        printf("\n");
     }
 
-    printf("\n\n\n\n\n\n");
+    printf("\n");
 }
 
 int main(int argc, char **argv) {
