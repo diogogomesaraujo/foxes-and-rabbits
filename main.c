@@ -252,13 +252,13 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
             break;
         case None:
             copy[x + d.x][y + d.y] = e.m[x][y];
+            copy[x + d.x][y + d.y].age++;
             break;
         default:
             fprintf(stderr,"single_rabbit_move entered unexpected case\n");
             return 1;
         }
         copy[x][y] = cell_from_id(None);
-        copy[x + d.x][y + d.y].age++;
         if (copy[x + d.x][y + d.y].age > e.gen_proc_rabbits) {
             copy[x + d.x][y + d.y].age = STARTING_AGE;
             copy[x][y] = cell_from_id(Rabbit);
@@ -278,6 +278,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
         case Rabbit:
             copy[x + d.x][y + d.y] = e.m[x][y];
             copy[x + d.x][y + d.y].gens_without_food = STARTING_GENS_WITHOUT_FOOD;
+            copy[x + d.x][y + d.y].age++;
             break;
         case Fox:
             if (e.m[x][y].age > copy[x + d.x][y + d.y].age ||
@@ -297,13 +298,13 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
                 copy[x + d.x][y + d.y] = e.m[x][y];
                 copy[x + d.x][y + d.y].gens_without_food++;
             }
+            copy[x + d.x][y + d.y].age++;
             break;
         default:
             fprintf(stderr,"single_fox_move entered unexpected case\n");
             return 1;
         }
         copy[x][y] = cell_from_id(None);
-        copy[x + d.x][y + d.y].age++;
         if (copy[x + d.x][y + d.y].age > e.gen_proc_foxes) {
             copy[x + d.x][y + d.y].age = STARTING_AGE;
             copy[x][y] = cell_from_id(Fox);
