@@ -244,27 +244,35 @@ Direction select_fox_direction(Environment e, int x, int y) {
 
 int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
     Direction d = select_rabbit_direction(e, x, y);
+
     if (IT_HAS_DIRECTION(d)) {
-        switch (copy[x + d.x][y + d.y].id) {
-        case Rabbit:
-            if (e.m[x][y].age > copy[x + d.x][y + d.y].age) {
-                copy[x + d.x][y + d.y] = e.m[x][y];
-                copy[x + d.x][y + d.y].age++;
-            }
-            break;
+        int dest_x = x + d.x;
+        int dest_y = y + d.y;
+
+        switch (e.m[dest_x][dest_y].id) {
         case None:
-            copy[x + d.x][y + d.y] = e.m[x][y];
-            copy[x + d.x][y + d.y].age++;
+            if (copy[dest_x][dest_y].id == Rabbit) {
+                if (e.m[x][y].age > copy[dest_x][dest_y].age) {
+                    copy[dest_x][dest_y] = e.m[x][y];
+                    copy[dest_x][dest_y].age++;
+                }
+                break;
+            }
+            copy[dest_x][dest_y] = e.m[x][y];
+            copy[dest_x][dest_y].age++;
             break;
         default:
             fprintf(stderr,"single_rabbit_move entered unexpected case\n");
             return 1;
         }
         copy[x][y] = cell_from_id(None);
-        if (copy[x + d.x][y + d.y].age > e.gen_proc_rabbits) {
-            copy[x + d.x][y + d.y].age = STARTING_AGE;
+
+        if (copy[dest_x][dest_y].age > e.gen_proc_rabbits) {
+            copy[dest_x][dest_y].age = STARTING_AGE;
             copy[x][y] = cell_from_id(Rabbit);
         }
+        //if (dest_x == 4 && dest_y == 13) printf("I'm (%d %d) and I want to go to (%d %d).\n", x, y, dest_x, dest_y);
+        //if (x == 4 && y == 13) printf("I'm (%d %d) and I want to go to (%d %d). proc age = %d\n", x, y, dest_x, dest_y, e.gen_proc_rabbits);
     }
     else {
         copy[x][y] = e.m[x][y];
@@ -275,6 +283,7 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
 
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
     Direction d = select_fox_direction(e, x, y);
+
     if (IT_HAS_DIRECTION(d)) {
         int dest_x = x + d.x;
         int dest_y = y + d.y;
@@ -524,7 +533,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     print_environment(e);
-    for (int i = 0; i < e.n_gen; i++) {
+    for (int i = 0; i < 875; i++) {
         next_gen(&e);
         print_environment(e);
     }
