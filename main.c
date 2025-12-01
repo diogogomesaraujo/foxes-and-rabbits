@@ -8,6 +8,7 @@
 #define STR_SIZE 100
 #define STARTING_AGE 0
 #define STARTING_GENS_WITHOUT_FOOD 0
+#define STARTING_GEN 0
 
 #define POSSIBLE_DIRECTIONS_LEN 4
 #define POSSIBLE_DIRECTIONS                                                    \
@@ -23,6 +24,7 @@ typedef struct {
     CellID id;
     int age;
     int gens_without_food;
+    int gen_updated;
 } Cell;
 
 typedef struct {
@@ -48,7 +50,10 @@ void print_matrix(Cell **m, int r, int c);
 Cell **allocate_empty_cell_matrix(int r, int c);
 int assert_environment_equals(Environment e1, Environment e2);
 
-Cell cell_from_id(CellID id);
+Cell cell_from_id(CellID id, int gen);
+
+bool cell_equals(Cell c1, Cell c2);
+
 
 
 Direction selecting_adjacent_cells(Environment e, int x, int y, Direction *d);
@@ -84,8 +89,12 @@ int assert_environment_equals(Environment e1, Environment e2){
     return 0;
 }
 
-Cell cell_from_id(CellID id) {
-    return (Cell){id, STARTING_AGE, STARTING_GENS_WITHOUT_FOOD};
+Cell cell_from_id(CellID id, int gen) {
+    return (Cell){id, STARTING_AGE, STARTING_GENS_WITHOUT_FOOD, gen};
+}
+
+bool cell_equals(Cell c1, Cell c2){
+    return (c1.age == c2.age && c1.id == c2.id && c1.gens_without_food == c2.gens_without_food && c1.gen_updated == c2.gen_updated);
 }
 
 Cell **allocate_empty_cell_matrix(int r, int c) {
@@ -93,7 +102,7 @@ Cell **allocate_empty_cell_matrix(int r, int c) {
     for (int i = 0; i < r; i++) {
         m[i] = (Cell *)malloc(sizeof(Cell) * c);
         for (int j = 0; j < c; j++) {
-            m[i][j] = cell_from_id(None);
+            m[i][j] = cell_from_id(None, STARTING_GEN);
         }
     }
     return m;
@@ -143,11 +152,11 @@ int input_file_to_env(char *file_path, Environment *env_buf) {
 
     while (fscanf(file, "%s %d %d", line_temp, &x_temp, &y_temp) != EOF) {
         if (strcmp(line_temp, "ROCK") == 0)
-            (*env_buf).m[x_temp][y_temp] = cell_from_id(Rock);
+            (*env_buf).m[x_temp][y_temp] = cell_from_id(Rock, STARTING_GEN);
         if (strcmp(line_temp, "RABBIT") == 0)
-            (*env_buf).m[x_temp][y_temp] = cell_from_id(Rabbit);
+            (*env_buf).m[x_temp][y_temp] = cell_from_id(Rabbit, STARTING_GEN);
         if (strcmp(line_temp, "FOX") == 0)
-            (*env_buf).m[x_temp][y_temp] = cell_from_id(Fox);
+            (*env_buf).m[x_temp][y_temp] = cell_from_id(Fox, STARTING_GEN);
     }
 
     fclose(file);
@@ -245,118 +254,121 @@ Direction select_fox_direction(Environment e, int x, int y) {
 int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
     Direction d = select_rabbit_direction(e, x, y);
 
+    bool can_procreate = (e.m[x][y].age >= e.gen_proc_rabbits) && IT_HAS_DIRECTION(d);
+
     if (IT_HAS_DIRECTION(d)) {
         int dest_x = x + d.x;
         int dest_y = y + d.y;
 
-        switch (e.m[dest_x][dest_y].id) {
-        case None:
-            if (copy[dest_x][dest_y].id == Rabbit) {
-                if (e.m[x][y].age > copy[dest_x][dest_y].age) {
-                    copy[dest_x][dest_y] = e.m[x][y];
-                    copy[dest_x][dest_y].age++;
-                }
-                break;
-            }
+        bool has_conflict = (copy[dest_x][dest_y].id == Rabbit);
+
+        bool wins = !has_conflict;
+
+        if (has_conflict) {
+            int other_age = copy[dest_x][dest_y].age - 1;
+            wins = (e.m[x][y].age > other_age);
+        }
+
+        if (wins) {
             copy[dest_x][dest_y] = e.m[x][y];
             copy[dest_x][dest_y].age++;
-            break;
-        default:
-            fprintf(stderr,"single_rabbit_move entered unexpected case\n");
-            return 1;
+            copy[dest_x][dest_y].gen_updated = e.g;
         }
-        copy[x][y] = cell_from_id(None);
 
-        if (copy[dest_x][dest_y].age > e.gen_proc_rabbits) {
-            copy[dest_x][dest_y].age = STARTING_AGE;
-            copy[x][y] = cell_from_id(Rabbit);
+        if (cell_equals(copy[x][y], e.m[x][y])) {
+            if (can_procreate) {
+                copy[x][y] = cell_from_id(Rabbit, e.g);
+                copy[dest_x][dest_y].age = 0;
+            } else {
+                copy[x][y] = cell_from_id(None, e.g);
+            }
         }
-        //if (dest_x == 4 && dest_y == 13) printf("I'm (%d %d) and I want to go to (%d %d).\n", x, y, dest_x, dest_y);
-        //if (x == 4 && y == 13) printf("I'm (%d %d) and I want to go to (%d %d). proc age = %d\n", x, y, dest_x, dest_y, e.gen_proc_rabbits);
     }
     else {
-        copy[x][y] = e.m[x][y];
         copy[x][y].age++;
+        copy[x][y].gen_updated = e.g;
     }
+
     return 0;
 }
 
+//updates copy matrix with specific cell move [x][y] --> uses e for refference
+//
+// die and stay in place are handled
+//
+// only update age and food when explicit move so we dont crank up the values on an early winner on a conflicting cell
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
     Direction d = select_fox_direction(e, x, y);
+
+    bool should_die = (e.m[x][y].gens_without_food >= e.gen_food_foxes) &&
+                      (!IT_HAS_DIRECTION(d) ||
+                       (IT_HAS_DIRECTION(d) && e.m[x+d.x][y+d.y].id != Rabbit));
+
+    bool can_procreate = (e.m[x][y].age >= e.gen_proc_foxes) && IT_HAS_DIRECTION(d);
+
+    if (should_die) {
+        if (cell_equals(e.m[x][y], copy[x][y])) {
+            copy[x][y] = cell_from_id(None, e.g);
+        }
+        return 0;
+    }
 
     if (IT_HAS_DIRECTION(d)) {
         int dest_x = x + d.x;
         int dest_y = y + d.y;
 
-        switch (e.m[dest_x][dest_y].id) {
-        case Rabbit:
-            if (copy[dest_x][dest_y].id == Fox) {
-                int existing_fox_original_age = copy[dest_x][dest_y].age - 1;
-                if (e.m[x][y].age > existing_fox_original_age ||
-                    (e.m[x][y].age == existing_fox_original_age &&
-                     e.m[x][y].gens_without_food < 0)) {
-                    copy[dest_x][dest_y] = e.m[x][y];
-                    copy[dest_x][dest_y].gens_without_food = STARTING_GENS_WITHOUT_FOOD;
-                    copy[dest_x][dest_y].age++;
-                }
-            } else {
-                copy[dest_x][dest_y] = e.m[x][y];
-                copy[dest_x][dest_y].gens_without_food = STARTING_GENS_WITHOUT_FOOD;
-                copy[dest_x][dest_y].age++;
-            }
-            break;
+        bool is_eating = (e.m[dest_x][dest_y].id == Rabbit);
+        bool has_conflict = (copy[dest_x][dest_y].id == Fox);
 
-        case None:
-            if (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) {
-                copy[x][y] = cell_from_id(None);
-                return 0;
-            }
+        bool wins = !has_conflict;
 
-            if (copy[dest_x][dest_y].id == Fox) {
-                int existing_fox_original_age = copy[dest_x][dest_y].age - 1;
-                int existing_fox_original_hunger = copy[dest_x][dest_y].gens_without_food - 1;
+        if (has_conflict) {
+            int other_age = copy[dest_x][dest_y].age - 1;
+            int other_hunger = copy[dest_x][dest_y].gens_without_food - (is_eating ? 0 : 1);
 
-                if (e.m[x][y].age > existing_fox_original_age ||
-                    (e.m[x][y].age == existing_fox_original_age &&
-                     e.m[x][y].gens_without_food < existing_fox_original_hunger)) {
-                    copy[dest_x][dest_y] = e.m[x][y];
-                    copy[dest_x][dest_y].gens_without_food++;
-                    copy[dest_x][dest_y].age++;
-                }
-            } else {
-                copy[dest_x][dest_y] = e.m[x][y];
-                copy[dest_x][dest_y].gens_without_food++;
-                copy[dest_x][dest_y].age++;
-            }
-            break;
-
-        default:
-            fprintf(stderr,"single_fox_move entered unexpected case\n");
-            return 1;
+            wins = (e.m[x][y].age > other_age) ||
+                   (e.m[x][y].age == other_age &&
+                    e.m[x][y].gens_without_food < other_hunger);
         }
 
-        if (e.m[x][y].age == copy[x][y].age &&
-            e.m[x][y].gens_without_food == copy[x][y].gens_without_food &&
-            e.m[x][y].id == copy[x][y].id) {
-            copy[x][y] = cell_from_id(None);
+        if (wins) {
+            copy[dest_x][dest_y] = e.m[x][y];
+            copy[dest_x][dest_y].age++;
+            copy[dest_x][dest_y].gens_without_food = is_eating ? 0 : (e.m[x][y].gens_without_food + 1);
+            copy[dest_x][dest_y].gen_updated = e.g;
         }
 
-        if (copy[dest_x][dest_y].id == Fox &&
-            copy[dest_x][dest_y].age > e.gen_proc_foxes) {
-            copy[dest_x][dest_y].age = STARTING_AGE;
-            copy[x][y] = cell_from_id(Fox);
+        if (cell_equals(copy[x][y], e.m[x][y])) {
+            if (can_procreate) {
+                copy[x][y] = cell_from_id(Fox, e.g);
+                copy[dest_x][dest_y].age = 0;
+            } else {
+                copy[x][y] = cell_from_id(None, e.g);
+            }
         }
     }
     else {
-        if (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) {
-            copy[x][y] = cell_from_id(None);
+        if (!cell_equals(e.m[x][y], copy[x][y])) {
+            if (e.m[x][y].age > copy[x][y].age - 1 ||
+                (e.m[x][y].age == copy[x][y].age - 1 &&
+                 e.m[x][y].gens_without_food < copy[x][y].gens_without_food - 1)) {
+                bool eaten_rabbit = (copy[x][y].gens_without_food == 0);
+                copy[x][y] = e.m[x][y];
+                copy[x][y].gens_without_food++;
+                if (eaten_rabbit) {
+                    copy[x][y].gens_without_food = 0;
+                }
+                copy[x][y].age++;
+                copy[x][y].gen_updated = e.g;
+            }
         }
         else {
-            copy[x][y] = e.m[x][y];
-            copy[x][y].age++;
             copy[x][y].gens_without_food++;
+            copy[x][y].age++;
+            copy[x][y].gen_updated = e.g;
         }
     }
+
     return 0;
 }
 
@@ -533,7 +545,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     print_environment(e);
-    for (int i = 0; i < 875; i++) {
+    for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
         print_environment(e);
     }
