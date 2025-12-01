@@ -94,7 +94,7 @@ Cell cell_from_id(CellID id, int gen) {
 }
 
 bool cell_equals(Cell c1, Cell c2){
-    return (c1.age == c2.age && c1.id == c2.id && c1.gens_without_food == c2.gens_without_food && c1.gen_updated == c2.gen_updated);
+    return (c1.age == c2.age && c1.id == c2.id && c1.gens_without_food == c2.gens_without_food);
 }
 
 Cell **allocate_empty_cell_matrix(int r, int c) {
@@ -300,8 +300,8 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
     Direction d = select_fox_direction(e, x, y);
 
-    bool should_die = (e.m[x][y].gens_without_food >= e.gen_food_foxes) &&
-                      (!IT_HAS_DIRECTION(d) ||
+    bool should_die = (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) &&
+                      (IT_HAS_DIRECTION(d) == false ||
                        (IT_HAS_DIRECTION(d) && e.m[x+d.x][y+d.y].id != Rabbit));
 
     bool can_procreate = (e.m[x][y].age >= e.gen_proc_foxes) && IT_HAS_DIRECTION(d);
@@ -545,7 +545,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     print_environment(e);
-    for (int i = 0; i < e.n_gen; i++) {
+    for (int i = 0; i < 900; i++) {
         next_gen(&e);
         print_environment(e);
     }
