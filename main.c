@@ -277,14 +277,13 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
             copy[dest_x][dest_y].gen_updated = e.g;
         }
 
-        if (cell_equals(copy[x][y], e.m[x][y])) {
-            if (can_procreate) {
-                copy[x][y] = cell_from_id(Rabbit, e.g);
-                if (!has_conflict) copy[dest_x][dest_y].age = 0;
-            } else {
-                copy[x][y] = cell_from_id(None, e.g);
-            }
+        if (can_procreate) {
+            copy[x][y] = cell_from_id(Rabbit, e.g);
+            if (!has_conflict) copy[dest_x][dest_y].age = 0;
+        } else {
+            copy[x][y] = cell_from_id(None, e.g);
         }
+
     }
     else {
         copy[x][y].age++;
@@ -346,14 +345,13 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
             copy[dest_x][dest_y].gen_updated = e.g;
         }
 
-        if (cell_equals(copy[x][y], e.m[x][y])) {
-            if (can_procreate) {
-                copy[x][y] = cell_from_id(Fox, e.g);
-                if (!has_conflict) copy[dest_x][dest_y].age = 0;
-            } else {
-                copy[x][y] = cell_from_id(None, e.g);
-            }
+        if (can_procreate) {
+            copy[x][y] = cell_from_id(Fox, e.g);
+            if (!has_conflict) copy[dest_x][dest_y].age = 0;
+        } else {
+            copy[x][y] = cell_from_id(None, e.g);
         }
+
     }
     else {
         if (!cell_equals(e.m[x][y], copy[x][y])) {
