@@ -293,11 +293,6 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
     return 0;
 }
 
-//updates copy matrix with specific cell move [x][y] --> uses e for refference
-//
-// die and stay in place are handled
-//
-// only update age and food when explicit move so we dont crank up the values on an early winner on a conflicting cell
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
     Direction d = select_fox_direction(e, x, y);
 
