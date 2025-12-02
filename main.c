@@ -265,8 +265,8 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
         bool wins = has_conflict == false;
 
         if (has_conflict) {
-            int other_age = copy[dest_x][dest_y].age - 1;
-            wins = e.m[x][y].age > other_age;
+            int dest_age = copy[dest_x][dest_y].age - 1;
+            wins = e.m[x][y].age > dest_age;
             if (can_procreate) wins = false;
         }
 
@@ -321,17 +321,15 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
         bool special_conflict = false;
 
         if (has_conflict) {
-            int other_age = copy[dest_x][dest_y].age - 1;
-            int other_hunger = copy[dest_x][dest_y].gens_without_food - (is_eating ? 0 : 1);
+            int dest_age = copy[dest_x][dest_y].age - 1;
+            int dest_gens_without_food = copy[dest_x][dest_y].gens_without_food - (is_eating ? 0 : 1);
 
-            wins = (e.m[x][y].age > other_age) ||
-                   (e.m[x][y].age == other_age &&
-                    e.m[x][y].gens_without_food < other_hunger);
+            wins = (e.m[x][y].age > dest_age) ||
+                   (e.m[x][y].age == dest_age &&
+                    e.m[x][y].gens_without_food < dest_gens_without_food);
             if (can_procreate) {
                 special_conflict = true;
-                if (e.g == 62 && dest_x == 0 && dest_y == 71) printf("\n\n\nI am (%d, %d) ----> other_age: %d other_hunger: %d\n", 0, e.m[x][y].gens_without_food, other_age, other_hunger);
-                wins = (0 >= other_age && e.m[x][y].gens_without_food < other_hunger);
-                if (e.g == 62 && dest_x == 0 && dest_y == 71 && wins) printf("won\n");
+                wins = (0 >= dest_age && e.m[x][y].gens_without_food < dest_gens_without_food);
             }
         }
 
@@ -379,7 +377,6 @@ int next_gen(Environment *e_buf) {
     Cell **new_m = allocate_empty_cell_matrix((*e_buf).r, (*e_buf).c);
     copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
 
-    // rabbit
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Rabbit) {
@@ -390,7 +387,6 @@ int next_gen(Environment *e_buf) {
 
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
-    // fox
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Fox) {
@@ -579,7 +575,7 @@ int main(int argc, char **argv) {
 
     //FILE *output_file = fopen("my_allgen", "w");
 
-    print_environment(e, false);
+    //print_environment(e, false);
     //write_environment(e, output_file);
     for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
@@ -587,13 +583,13 @@ int main(int argc, char **argv) {
     }
     update_n(&e);
 
-    print_environment(e, false);
+    //print_environment(e, false);
 
     Environment out;
     if (input_file_to_env(argv[2], &out) == 1) {
         return 1;
     }
-    print_environment(out, true);
+    //print_environment(out, true);
 
     assert_environment_equals(e,out);
 
