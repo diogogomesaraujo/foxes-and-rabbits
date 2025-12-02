@@ -45,7 +45,7 @@ typedef struct {
 } Environment;
 
 int input_file_to_env(char *file_path, Environment *env_buf);
-void print_environment(Environment e);
+void print_environment(Environment e, bool is_output);
 void print_matrix(Cell **m, int r, int c);
 Cell **allocate_empty_cell_matrix(int r, int c);
 int assert_environment_equals(Environment e1, Environment e2);
@@ -425,132 +425,10 @@ int update_n(Environment *e_buf) {
     return 0;
 }
 
-void print_matrix(Cell **m, int r, int c) {
-    for (int i = 0; i < r; i++) {
-        for (int j = 0; j < c; j++) {
-            switch (m[i][j].id) {
-            case Rabbit:
-                printf("R");
-                break;
-            case Rock:
-                printf("*");
-                break;
-            case Fox:
-                printf("F");
-                break;
-            default:
-                printf(" ");
-                break;
-            }
-        }
-        printf("  ");
+void print_environment(Environment e, bool is_output) {
+    if (is_output) printf("Correct Output\n\n");
 
-        for (int j = 0; j < c; j++) {
-            switch (m[i][j].id) {
-            case Rabbit:
-                printf("%d", m[i][j].age);
-                break;
-            case Rock:
-                printf("*");
-                break;
-            case Fox:
-                printf("%d", m[i][j].age);
-                break;
-            default:
-                printf(" ");
-                break;
-            }
-        }
-        printf("  ");
-
-        for (int j = 0; j < c; j++) {
-            switch (m[i][j].id) {
-            case Rabbit:
-                printf("R");
-                break;
-            case Rock:
-                printf("*");
-                break;
-            case Fox:
-                printf("%d", m[i][j].gens_without_food);
-                break;
-            default:
-                printf(" ");
-                break;
-            }
-        }
-        printf("\n");
-    }
-
-    for (int i = 0; i < 3 * r + 4; i++) printf("_");
-    printf("\n\n");
-}
-
-void print_environment(Environment e) {
-    printf("Generation %d\n\n", e.g);
-
-    for (int i = 0; i < e.r; i++) {
-        for (int j = 0; j < e.c; j++) {
-            switch (e.m[i][j].id) {
-            case Rabbit:
-                printf("R");
-                break;
-            case Rock:
-                printf("*");
-                break;
-            case Fox:
-                printf("F");
-                break;
-            default:
-                printf(" ");
-                break;
-            }
-        }
-        printf("  ");
-
-        for (int j = 0; j < e.c; j++) {
-            switch (e.m[i][j].id) {
-            case Rabbit:
-                printf("%d", e.m[i][j].age);
-                break;
-            case Rock:
-                printf("*");
-                break;
-            case Fox:
-                printf("%d", e.m[i][j].age);
-                break;
-            default:
-                printf(" ");
-                break;
-            }
-        }
-        printf("  ");
-
-        for (int j = 0; j < e.c; j++) {
-            switch (e.m[i][j].id) {
-            case Rabbit:
-                printf("R");
-                break;
-            case Rock:
-                printf("*");
-                break;
-            case Fox:
-                printf("%d", e.m[i][j].gens_without_food);
-                break;
-            default:
-                printf(" ");
-                break;
-            }
-        }
-        printf("\n");
-    }
-
-    for (int i = 0; i < 3 * e.r + 4; i++) printf("_");
-    printf("\n\n");
-}
-
-void print_output(Environment e) {
-    printf("Correct Output\n\n");
+    else printf("Generation %d\n\n", e.g);
 
     for (int i = 0; i < e.r; i++) {
         for (int j = 0; j < e.c; j++) {
@@ -616,19 +494,26 @@ int main(int argc, char **argv) {
     Environment e;
     if (argc != 3)
         return 1;
+
     if (input_file_to_env(argv[1], &e) == 1) {
         return 1;
     }
-    print_environment(e);
+
+    print_environment(e, false);
     for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
     }
     update_n(&e);
+
+    print_environment(e, false);
+
     Environment out;
     if (input_file_to_env(argv[2], &out) == 1) {
         return 1;
     }
-    print_output(out);
+    print_environment(out, true);
+
     assert_environment_equals(e,out);
+
     return 0;
 }
