@@ -3,3 +3,4 @@ a.out
 run
 ecosystem_examples/allgen100x100
 my_allgen
+.clangd
