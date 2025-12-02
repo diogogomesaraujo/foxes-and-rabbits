@@ -16,7 +16,7 @@
      (Direction){0, -1}} // UP, RIGHT, LEFT, DOWN
 #define NO_DIRECTION                                                           \
     (Direction) { INT_MIN, INT_MIN }
-#define IT_HAS_DIRECTION(d) NO_DIRECTION.x != d.x &&NO_DIRECTION.y != d.y
+#define IT_HAS_DIRECTION(d) (NO_DIRECTION.x != d.x &&NO_DIRECTION.y != d.y)
 
 typedef enum { Rabbit, Fox, Rock, None } CellID;
 
