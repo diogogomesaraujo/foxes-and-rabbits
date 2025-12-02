@@ -262,15 +262,17 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
 
         bool has_conflict = (copy[dest_x][dest_y].id == Rabbit);
 
-        bool wins = !has_conflict;
+        bool wins = has_conflict == false;
 
         if (has_conflict) {
             int other_age = copy[dest_x][dest_y].age - 1;
-            wins = (e.m[x][y].age > other_age);
+            wins = e.m[x][y].age > other_age;
+            if (can_procreate) wins = false;
         }
 
         if (wins) {
             copy[dest_x][dest_y] = e.m[x][y];
+
             copy[dest_x][dest_y].age++;
             copy[dest_x][dest_y].gen_updated = e.g;
         }
@@ -278,7 +280,7 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
         if (cell_equals(copy[x][y], e.m[x][y])) {
             if (can_procreate) {
                 copy[x][y] = cell_from_id(Rabbit, e.g);
-                copy[dest_x][dest_y].age = 0;
+                if (!has_conflict) copy[dest_x][dest_y].age = 0;
             } else {
                 copy[x][y] = cell_from_id(None, e.g);
             }
@@ -288,6 +290,10 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
         copy[x][y].age++;
         copy[x][y].gen_updated = e.g;
     }
+
+    int dest_x = x + d.x;
+    int dest_y = y + d.y;
+
 
     return 0;
 }
@@ -322,6 +328,8 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
 
         bool wins = !has_conflict;
 
+        bool special_conflict = false;
+
         if (has_conflict) {
             int other_age = copy[dest_x][dest_y].age - 1;
             int other_hunger = copy[dest_x][dest_y].gens_without_food - (is_eating ? 0 : 1);
@@ -329,19 +337,23 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
             wins = (e.m[x][y].age > other_age) ||
                    (e.m[x][y].age == other_age &&
                     e.m[x][y].gens_without_food < other_hunger);
+            if (can_procreate) {
+                wins = (0 == other_age && e.m[x][y].gens_without_food < other_hunger);
+                special_conflict = true;
+            }
         }
 
         if (wins) {
             copy[dest_x][dest_y] = e.m[x][y];
             copy[dest_x][dest_y].age++;
-            copy[dest_x][dest_y].gens_without_food = is_eating ? 0 : (e.m[x][y].gens_without_food + 1);
+            if (special_conflict == false) copy[dest_x][dest_y].gens_without_food = is_eating ? 0 : (e.m[x][y].gens_without_food + 1);
             copy[dest_x][dest_y].gen_updated = e.g;
         }
 
         if (cell_equals(copy[x][y], e.m[x][y])) {
             if (can_procreate) {
                 copy[x][y] = cell_from_id(Fox, e.g);
-                copy[dest_x][dest_y].age = 0;
+                if (!has_conflict) copy[dest_x][dest_y].age = 0;
             } else {
                 copy[x][y] = cell_from_id(None, e.g);
             }
@@ -537,6 +549,69 @@ void print_environment(Environment e) {
     printf("\n\n");
 }
 
+void print_output(Environment e) {
+    printf("Correct Output\n\n");
+
+    for (int i = 0; i < e.r; i++) {
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                printf("R");
+                break;
+            case Rock:
+                printf("*");
+                break;
+            case Fox:
+                printf("F");
+                break;
+            default:
+                printf(" ");
+                break;
+            }
+        }
+        printf("  ");
+
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                printf("%d", e.m[i][j].age);
+                break;
+            case Rock:
+                printf("*");
+                break;
+            case Fox:
+                printf("%d", e.m[i][j].age);
+                break;
+            default:
+                printf(" ");
+                break;
+            }
+        }
+        printf("  ");
+
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                printf("R");
+                break;
+            case Rock:
+                printf("*");
+                break;
+            case Fox:
+                printf("%d", e.m[i][j].gens_without_food);
+                break;
+            default:
+                printf(" ");
+                break;
+            }
+        }
+        printf("\n");
+    }
+
+    for (int i = 0; i < 3 * e.r + 4; i++) printf("_");
+    printf("\n\n");
+}
+
 int main(int argc, char **argv) {
     Environment e;
     if (argc != 3)
@@ -545,16 +620,15 @@ int main(int argc, char **argv) {
         return 1;
     }
     print_environment(e);
-    for (int i = 0; i < 900; i++) {
+    for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
-        print_environment(e);
     }
     update_n(&e);
     Environment out;
     if (input_file_to_env(argv[2], &out) == 1) {
         return 1;
     }
-    print_environment(out);
+    print_output(out);
     assert_environment_equals(e,out);
     return 0;
 }

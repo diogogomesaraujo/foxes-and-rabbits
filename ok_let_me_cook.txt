@@ -1,0 +1,16 @@
+
+
+|   FR  R  R R  R FFR|   |   00  0  2 2  2 002| |   0R  R  R R  R 01R|
+|   F   R *R    R*   |   |   0   0 *2    2*   | |   0   R *R    R*   |
+
+    FR  R  R R  R FFR        00  0  2 2  2 002      0R  R  R R  R 01R
+    F   R *R    R*           0   0 *2    2*         0   R *R    R*
+
+|  F  R     RF R F   |   |  1  1     31 3 1   | |  1  R     R1 R 1   |
+|R     R R* RR   * FR|   |3     3 1* 13   * 13| |R     R R* RR   * 2R|
+
+   F  R     RF R F          1  1     31 3 1        1  R     R1 R 1
+ R     R R* RR   * FR     3     3 1* 11   * 13   R     R R* RR   * 2R
+
+
+the problem is the rabbit going from 4 13 to 3 13
