@@ -426,11 +426,19 @@ int update_n(Environment *e_buf) {
 }
 
 void print_environment(Environment e, bool is_output) {
-    if (is_output) printf("Correct Output\n\n");
+    if (is_output) printf("Correct Output\n");
 
-    else printf("Generation %d\n\n", e.g);
+    else printf("Generation %d\n", e.g);
+
+    for (int i = 0; i < e.r + 2; i++) printf("-");
+    printf("   ");
+    for (int i = 0; i < e.r + 2; i++) printf("-");
+    printf(" ");
+    for (int i = 0; i < e.r + 2; i++) printf("-");
+    printf("\n");
 
     for (int i = 0; i < e.r; i++) {
+        printf("|");
         for (int j = 0; j < e.c; j++) {
             switch (e.m[i][j].id) {
             case Rabbit:
@@ -447,7 +455,7 @@ void print_environment(Environment e, bool is_output) {
                 break;
             }
         }
-        printf("  ");
+        printf("|   |");
 
         for (int j = 0; j < e.c; j++) {
             switch (e.m[i][j].id) {
@@ -465,7 +473,7 @@ void print_environment(Environment e, bool is_output) {
                 break;
             }
         }
-        printf("  ");
+        printf("| |");
 
         for (int j = 0; j < e.c; j++) {
             switch (e.m[i][j].id) {
@@ -483,10 +491,14 @@ void print_environment(Environment e, bool is_output) {
                 break;
             }
         }
-        printf("\n");
+        printf("|\n");
     }
 
-    for (int i = 0; i < 3 * e.r + 4; i++) printf("_");
+    for (int i = 0; i < e.r + 2; i++) printf("-");
+    printf("   ");
+    for (int i = 0; i < e.r + 2; i++) printf("-");
+    printf(" ");
+    for (int i = 0; i < e.r + 2; i++) printf("-");
     printf("\n\n");
 }
 
