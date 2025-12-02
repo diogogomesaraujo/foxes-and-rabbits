@@ -318,7 +318,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
 
         bool wins = !has_conflict;
 
-        bool special_conflict = false;
+        bool spaguetti_conflict = false;
 
         if (has_conflict) {
             int dest_age = copy[dest_x][dest_y].age - 1;
@@ -328,7 +328,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
                    (e.m[x][y].age == dest_age &&
                     e.m[x][y].gens_without_food < dest_gens_without_food);
             if (can_procreate) {
-                special_conflict = true;
+                spaguetti_conflict = true;
                 wins = (0 >= dest_age && e.m[x][y].gens_without_food < dest_gens_without_food);
             }
         }
@@ -342,7 +342,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
 
         if (can_procreate) {
             copy[x][y] = cell_from_id(Fox, e.g);
-            if (!has_conflict || special_conflict) copy[dest_x][dest_y].age = 0;
+            if (!has_conflict || spaguetti_conflict) copy[dest_x][dest_y].age = 0;
         } else {
             copy[x][y] = cell_from_id(None, e.g);
         }
