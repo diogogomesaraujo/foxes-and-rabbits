@@ -491,6 +491,81 @@ void print_environment(Environment e, bool is_output) {
     printf("\n\n");
 }
 
+void write_environment(Environment e, FILE *file) {
+    fprintf(file, "Generation %d\n", e.g);
+
+    for (int i = 0; i < e.r + 2; i++) fprintf(file, "-");
+    fprintf(file, "   ");
+    for (int i = 0; i < e.r + 2; i++) fprintf(file, "-");
+    fprintf(file, " ");
+    for (int i = 0; i < e.r + 2; i++) fprintf(file, "-");
+    fprintf(file, "\n");
+
+    for (int i = 0; i < e.r; i++) {
+        fprintf(file, "|");
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                fprintf(file, "R");
+                break;
+            case Rock:
+                fprintf(file, "*");
+                break;
+            case Fox:
+                fprintf(file, "F");
+                break;
+            default:
+                fprintf(file, " ");
+                break;
+            }
+        }
+        fprintf(file, "|   |");
+
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                fprintf(file, "%d", e.m[i][j].age);
+                break;
+            case Rock:
+                fprintf(file, "*");
+                break;
+            case Fox:
+                fprintf(file, "%d", e.m[i][j].age);
+                break;
+            default:
+                fprintf(file, " ");
+                break;
+            }
+        }
+        fprintf(file, "| |");
+
+        for (int j = 0; j < e.c; j++) {
+            switch (e.m[i][j].id) {
+            case Rabbit:
+                fprintf(file, "R");
+                break;
+            case Rock:
+                fprintf(file, "*");
+                break;
+            case Fox:
+                fprintf(file, "%d", e.m[i][j].gens_without_food);
+                break;
+            default:
+                fprintf(file, " ");
+                break;
+            }
+        }
+        fprintf(file, "|\n");
+    }
+
+    for (int i = 0; i < e.r + 2; i++) fprintf(file, "-");
+    fprintf(file, "   ");
+    for (int i = 0; i < e.r + 2; i++) fprintf(file, "-");
+    fprintf(file, " ");
+    for (int i = 0; i < e.r + 2; i++) fprintf(file, "-");
+    fprintf(file, "\n\n");
+}
+
 int main(int argc, char **argv) {
     Environment e;
     if (argc != 3)
@@ -500,9 +575,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    FILE *output_file = fopen("my_allgen", "w");
+
     print_environment(e, false);
+    write_environment(e, output_file);
     for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
+        write_environment(e, output_file);
     }
     update_n(&e);
 
