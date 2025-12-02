@@ -291,10 +291,6 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
         copy[x][y].gen_updated = e.g;
     }
 
-    int dest_x = x + d.x;
-    int dest_y = y + d.y;
-
-
     return 0;
 }
 
