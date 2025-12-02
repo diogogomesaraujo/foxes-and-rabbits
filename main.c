@@ -328,21 +328,23 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
                    (e.m[x][y].age == other_age &&
                     e.m[x][y].gens_without_food < other_hunger);
             if (can_procreate) {
-                wins = (0 == other_age && e.m[x][y].gens_without_food < other_hunger);
                 special_conflict = true;
+                if (e.g == 62 && dest_x == 0 && dest_y == 71) printf("\n\n\nI am (%d, %d) ----> other_age: %d other_hunger: %d\n", 0, e.m[x][y].gens_without_food, other_age, other_hunger);
+                wins = (0 >= other_age && e.m[x][y].gens_without_food < other_hunger);
+                if (e.g == 62 && dest_x == 0 && dest_y == 71 && wins) printf("won\n");
             }
         }
 
         if (wins) {
             copy[dest_x][dest_y] = e.m[x][y];
             copy[dest_x][dest_y].age++;
-            if (special_conflict == false) copy[dest_x][dest_y].gens_without_food = is_eating ? 0 : (e.m[x][y].gens_without_food + 1);
+            copy[dest_x][dest_y].gens_without_food = is_eating ? 0 : (e.m[x][y].gens_without_food + 1);
             copy[dest_x][dest_y].gen_updated = e.g;
         }
 
         if (can_procreate) {
             copy[x][y] = cell_from_id(Fox, e.g);
-            if (!has_conflict) copy[dest_x][dest_y].age = 0;
+            if (!has_conflict || special_conflict) copy[dest_x][dest_y].age = 0;
         } else {
             copy[x][y] = cell_from_id(None, e.g);
         }
@@ -356,7 +358,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
                 bool eaten_rabbit = (copy[x][y].gens_without_food == 0);
                 copy[x][y] = e.m[x][y];
                 copy[x][y].gens_without_food++;
-                if (eaten_rabbit) {
+                if (eaten_rabbit ) {
                     copy[x][y].gens_without_food = 0;
                 }
                 copy[x][y].age++;
@@ -575,13 +577,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    FILE *output_file = fopen("my_allgen", "w");
+    //FILE *output_file = fopen("my_allgen", "w");
 
     print_environment(e, false);
-    write_environment(e, output_file);
+    //write_environment(e, output_file);
     for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
-        write_environment(e, output_file);
+        //write_environment(e, output_file);
     }
     update_n(&e);
 
