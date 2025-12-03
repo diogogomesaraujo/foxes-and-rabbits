@@ -1,14 +1,19 @@
 CC = clang
-CFLAGS = -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -O3
-LDFLAGS = -L/opt/homebrew/opt/libomp/lib -lomp
-
+CFLAGS_BASE = -O3
+CFLAGS_OMP = -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
+LDFLAGS_OMP = -L/opt/homebrew/opt/libomp/lib -lomp
 SRC = main.c
 OUT = a.out
 
-all: $(OUT)
+all: omp
 
-$(OUT): $(SRC)
-	$(CC) $(CFLAGS) -o $(OUT) $(SRC) $(LDFLAGS)
+omp: $(SRC)
+	$(CC) $(CFLAGS_BASE) $(CFLAGS_OMP) -o $(OUT) $(SRC) $(LDFLAGS_OMP)
+
+seq: $(SRC)
+	$(CC) $(CFLAGS_BASE) -o $(OUT) $(SRC)
 
 clean:
 	rm -f $(OUT)
+
+.PHONY: all omp seq clean

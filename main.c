@@ -5,6 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#else
+#include <time.h>
+#endif
+
 #define STR_SIZE 100
 #define STARTING_AGE 0
 #define STARTING_GENS_WITHOUT_FOOD 0
@@ -159,6 +165,7 @@ int input_file_to_env(char *file_path, Environment *env_buf) {
             (*env_buf).m[x_temp][y_temp] = cell_from_id(Fox, STARTING_GEN);
     }
 
+    free(line_temp);
     fclose(file);
     return 0;
 }
@@ -377,6 +384,19 @@ int next_gen(Environment *e_buf) {
     Cell **new_m = allocate_empty_cell_matrix((*e_buf).r, (*e_buf).c);
     copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
 
+    #ifdef _OPENMP
+    #pragma omp parallel
+    {
+        #pragma omp for schedule(static)
+        for (int i = 0; i < (*e_buf).r; i++) {
+            for (int j = 0; j < (*e_buf).c; j++) {
+                if ((*e_buf).m[i][j].id == Rabbit) {
+                    single_rabbit_move((*e_buf), new_m, i, j);
+                }
+            }
+        }
+    }
+    #else
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Rabbit) {
@@ -384,9 +404,23 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
+    #endif
 
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
+    #ifdef _OPENMP
+    #pragma omp parallel
+    {
+        #pragma omp for schedule(static) nowait
+        for (int i = 0; i < (*e_buf).r; i++) {
+            for (int j = 0; j < (*e_buf).c; j++) {
+                if ((*e_buf).m[i][j].id == Fox) {
+                    single_fox_move((*e_buf), new_m, i, j);
+                }
+            }
+        }
+    }
+    #else
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Fox) {
@@ -394,6 +428,7 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
+    #endif
 
     destroy_cell_matrix((*e_buf).m, (*e_buf).r);
     (*e_buf).m = new_m;
@@ -577,11 +612,25 @@ int main(int argc, char **argv) {
 
     //print_environment(e, false);
     //write_environment(e, output_file);
+
+    #ifdef _OPENMP
+    double start = omp_get_wtime();
+    #else
+    clock_t start = (double) clock();
+    #endif
+
+
     for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
         //write_environment(e, output_file);
     }
     update_n(&e);
+
+    #ifdef _OPENMP
+    double end = omp_get_wtime();
+    #else
+    clock_t end = clock();
+    #endif
 
     //print_environment(e, false);
 
@@ -592,6 +641,12 @@ int main(int argc, char **argv) {
     //print_environment(out, true);
 
     assert_environment_equals(e,out);
+
+    #ifdef _OPENMP
+    printf("Took %f seconds\n", end - start);
+    #else
+    printf("Took %f seconds\n", (double)(end - start)/CLOCKS_PER_SEC);
+    #endif
 
     return 0;
 }
