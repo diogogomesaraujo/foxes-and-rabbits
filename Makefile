@@ -13,6 +13,9 @@ omp: $(SRC)
 seq: $(SRC)
 	$(CC) $(CFLAGS_BASE) -o $(OUT) $(SRC)
 
+allgen: $(SRC)
+	$(CC) -D_ALLGEN $(CFLAGS_BASE) -o $(OUT) $(SRC)
+
 clean:
 	rm -f $(OUT)
 

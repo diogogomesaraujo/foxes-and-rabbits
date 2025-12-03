@@ -411,7 +411,7 @@ int next_gen(Environment *e_buf) {
     #ifdef _OPENMP
     #pragma omp parallel
     {
-        #pragma omp for schedule(static) nowait
+        #pragma omp for schedule(static)
         for (int i = 0; i < (*e_buf).r; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Fox) {
@@ -608,10 +608,14 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    //FILE *output_file = fopen("my_allgen", "w");
+    #ifdef _ALLGEN
+    FILE *output_file = fopen("my_allgen", "w");
+    #endif
 
     //print_environment(e, false);
-    //write_environment(e, output_file);
+    #ifdef _ALLGEN
+    write_environment(e, output_file);
+    #endif
 
     #ifdef _OPENMP
     double start = omp_get_wtime();
@@ -622,7 +626,9 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
-        //write_environment(e, output_file);
+        #ifdef _ALLGEN
+        write_environment(e, output_file);
+        #endif
     }
     update_n(&e);
 
@@ -641,6 +647,10 @@ int main(int argc, char **argv) {
     //print_environment(out, true);
 
     assert_environment_equals(e,out);
+
+    #ifdef _ALLGEN
+    fclose(output_file);
+    #endif
 
     #ifdef _OPENMP
     printf("Took %f seconds\n", end - start);
