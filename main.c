@@ -27,16 +27,17 @@
 typedef enum { Rabbit, Fox, Rock, None } CellID;
 
 typedef struct {
+    int x;
+    int y;
+} Direction;
+
+typedef struct {
     CellID id;
     int age;
     int gens_without_food;
     int gen_updated;
+    Direction n_dir; //next direction
 } Cell;
-
-typedef struct {
-    int x;
-    int y;
-} Direction;
 
 typedef struct {
     int gen_proc_rabbits;
@@ -96,7 +97,7 @@ int assert_environment_equals(Environment e1, Environment e2){
 }
 
 Cell cell_from_id(CellID id, int gen) {
-    return (Cell){id, STARTING_AGE, STARTING_GENS_WITHOUT_FOOD, gen};
+    return (Cell){id, STARTING_AGE, STARTING_GENS_WITHOUT_FOOD, gen, NO_DIRECTION};
 }
 
 bool cell_equals(Cell c1, Cell c2){
@@ -259,7 +260,7 @@ Direction select_fox_direction(Environment e, int x, int y) {
 }
 
 int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
-    Direction d = select_rabbit_direction(e, x, y);
+    Direction d = e.m[x][y].n_dir;
 
     bool can_procreate = (e.m[x][y].age >= e.gen_proc_rabbits) && IT_HAS_DIRECTION(d);
 
@@ -301,7 +302,7 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
 }
 
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
-    Direction d = select_fox_direction(e, x, y);
+    Direction d = e.m[x][y].n_dir;
 
     bool should_die = (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) &&
                       (IT_HAS_DIRECTION(d) == false ||
@@ -385,18 +386,16 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    #pragma omp parallel
-    {
-        #pragma omp for schedule(static)
-        for (int i = 0; i < (*e_buf).r; i++) {
-            for (int j = 0; j < (*e_buf).c; j++) {
-                if ((*e_buf).m[i][j].id == Rabbit) {
-                    single_rabbit_move((*e_buf), new_m, i, j);
-                }
+    #pragma omp parallel for schedule(static) collapse(2)
+    #endif
+    for (int i = 0; i < (*e_buf).r; i++) {
+        for (int j = 0; j < (*e_buf).c; j++) {
+            if ((*e_buf).m[i][j].id == Rabbit) {
+                (*e_buf).m[i][j].n_dir = select_rabbit_direction((*e_buf), i, j);
             }
         }
     }
-    #else
+
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Rabbit) {
@@ -404,23 +403,20 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
-    #endif
 
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    #pragma omp parallel
-    {
-        #pragma omp for schedule(static)
-        for (int i = 0; i < (*e_buf).r; i++) {
-            for (int j = 0; j < (*e_buf).c; j++) {
-                if ((*e_buf).m[i][j].id == Fox) {
-                    single_fox_move((*e_buf), new_m, i, j);
-                }
+    #pragma omp parallel for schedule(static) collapse(2)
+    #endif
+    for (int i = 0; i < (*e_buf).r; i++) {
+        for (int j = 0; j < (*e_buf).c; j++) {
+            if ((*e_buf).m[i][j].id == Fox) {
+                (*e_buf).m[i][j].n_dir = select_fox_direction((*e_buf), i, j);
             }
         }
     }
-    #else
+
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Fox) {
@@ -428,7 +424,6 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
-    #endif
 
     destroy_cell_matrix((*e_buf).m, (*e_buf).r);
     (*e_buf).m = new_m;
