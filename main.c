@@ -50,21 +50,6 @@ typedef struct {
     Cell **m; // cell matrix
 } Environment;
 
-typedef struct {
-    int start_r; // inclusive
-    int end_r;   // exclusive
-    int start_c; // inclusive
-    int end_c;   // exclusive
-} Block;
-
-typedef struct {
-    Block **blocks;
-    int r;
-    int c;
-} Grid;
-
-int get_thread_count(void);
-
 int input_file_to_env(char *file_path, Environment *env_buf);
 void print_environment(Environment e, bool is_output);
 void print_matrix(Cell **m, int r, int c);
@@ -75,21 +60,11 @@ Cell cell_from_id(CellID id, int gen);
 
 bool cell_equals(Cell c1, Cell c2);
 
-// Grid create_grid(int r, int c);
+
 
 Direction selecting_adjacent_cells(Environment e, int x, int y, Direction *d);
 Direction select_fox_direction(Environment e, int x, int y);
 Direction select_rabbit_direction(Environment e, int x, int y);
-
-int get_thread_count(void) {
-#ifdef _OPENMP
-    int t = omp_get_max_threads();
-    if (t < 1) t = 1;
-    return t;
-#else
-    return 1;
-#endif
-}
 
 int assert_environment_equals(Environment e1, Environment e2){
     if (e1.gen_food_foxes != e2.gen_food_foxes ||
@@ -127,16 +102,6 @@ Cell cell_from_id(CellID id, int gen) {
 bool cell_equals(Cell c1, Cell c2){
     return (c1.age == c2.age && c1.id == c2.id && c1.gens_without_food == c2.gens_without_food);
 }
-
-// static void choose_block_grid(int e_rows, int e_cols, int n_threads, int *g_rows, int *g_cols){
-//     if (n_threads < 1) n_threads = 1;
-
-// }
-
-// Grid create_grid(int r, int c){
-//     Grid g;
-//     return g;
-// }
 
 Cell **allocate_empty_cell_matrix(int r, int c) {
     Cell **m = (Cell **)malloc(sizeof(Cell *) * r);
