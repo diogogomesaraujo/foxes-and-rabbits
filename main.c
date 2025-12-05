@@ -57,9 +57,9 @@ typedef struct {
     int start_y; //inclusive
     int end_x; //exclusive
     int end_y; //exclusive
-} Thread;
+} ThreadState;
 
-Thread* thread_init(Environment e, int n_threads);
+ThreadState* thread_state_init(Environment e, int n_threads);
 
 int input_file_to_env(char *file_path, Environment *env_buf);
 void print_environment(Environment e, bool is_output);
@@ -75,7 +75,7 @@ Direction select_fox_direction(Environment e, int x, int y);
 Direction select_rabbit_direction(Environment e, int x, int y);
 
 //assume that e.r and e.c (same) are divisible by root of n_threads
-Thread* thread_init(Environment e, int n_threads) {
+ThreadState* thread_state_init(Environment e, int n_threads) {
     int g_size = (int)sqrt(n_threads);  // threads per side
 
     if (g_size * g_size != n_threads) {
@@ -83,7 +83,7 @@ Thread* thread_init(Environment e, int n_threads) {
         exit(1);
     }
 
-    Thread* threads = (Thread*)malloc(sizeof(Thread) * n_threads);
+    ThreadState* threads = (ThreadState*)malloc(sizeof(ThreadState) * n_threads);
 
     int b_size = (e.r - 2 * (g_size - 1)) / g_size;
 
@@ -410,7 +410,7 @@ int next_gen(Environment *e_buf) {
 
     #ifdef _OPENMP
     int n_threads = omp_get_max_threads();
-    Thread* threads = thread_init(*e_buf, n_threads);
+    ThreadState* threads = thread_state_init(*e_buf, n_threads);
     int g_size = (int)sqrt(n_threads);
 
     #pragma omp parallel
@@ -466,7 +466,7 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    threads = thread_init(*e_buf, n_threads);
+    threads = thread_state_init(*e_buf, n_threads);
 
     #pragma omp parallel
     {
