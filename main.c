@@ -59,6 +59,8 @@ typedef struct {
     int end_y; //exclusive
 } Thread;
 
+Thread* thread_init(Environment e, int n_threads);
+
 int input_file_to_env(char *file_path, Environment *env_buf);
 void print_environment(Environment e, bool is_output);
 void print_matrix(Cell **m, int r, int c);
@@ -66,10 +68,7 @@ Cell **allocate_empty_cell_matrix(int r, int c);
 int assert_environment_equals(Environment e1, Environment e2);
 
 Cell cell_from_id(CellID id, int gen);
-
 bool cell_equals(Cell c1, Cell c2);
-
-
 
 Direction selecting_adjacent_cells(Environment e, int x, int y, Direction *d);
 Direction select_fox_direction(Environment e, int x, int y);
@@ -410,10 +409,25 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
+    int n_threads = omp_get_max_threads();
+    Thread* threads = thread_init(*e_buf, n_threads);
+    int g_size = (int)sqrt(n_threads);
+
     #pragma omp parallel
     {
-        #pragma omp for schedule(static)
-        for (int i = 0; i < (*e_buf).r; i++) {
+        int tid = omp_get_thread_num();
+        for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
+            for (int j = threads[tid].start_y; j < threads[tid].end_y; j++) {
+                if ((*e_buf).m[i][j].id == Rabbit) {
+                    single_rabbit_move((*e_buf), new_m, i, j);
+                }
+            }
+        }
+    }
+
+    for (int k = 0; k < g_size - 1; k++) {
+        int gap_start = threads[k * g_size].end_x;
+        for (int i = gap_start; i < gap_start + 2; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Rabbit) {
                     single_rabbit_move((*e_buf), new_m, i, j);
@@ -421,6 +435,24 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
+
+    for (int t = 0; t < g_size - 1; t++) {
+        int gap_start = threads[t].end_y;
+        for (int block_row = 0; block_row < g_size; block_row++) {
+            int r_start = threads[block_row * g_size].start_x;
+            int r_end = threads[block_row * g_size].end_x;
+            for (int i = r_start; i < r_end; i++) {
+                for (int j = gap_start; j < gap_start + 2; j++) {
+                    if ((*e_buf).m[i][j].id == Rabbit) {
+                        single_rabbit_move((*e_buf), new_m, i, j);
+                    }
+                }
+            }
+        }
+    }
+
+    free(threads);
+
     #else
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
@@ -434,10 +466,23 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
+    threads = thread_init(*e_buf, n_threads);
+
     #pragma omp parallel
     {
-        #pragma omp for schedule(static)
-        for (int i = 0; i < (*e_buf).r; i++) {
+        int tid = omp_get_thread_num();
+        for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
+            for (int j = threads[tid].start_y; j < threads[tid].end_y; j++) {
+                if ((*e_buf).m[i][j].id == Fox) {
+                    single_fox_move((*e_buf), new_m, i, j);
+                }
+            }
+        }
+    }
+
+    for (int k = 0; k < g_size - 1; k++) {
+        int gap_start = threads[k * g_size].end_x;
+        for (int i = gap_start; i < gap_start + 2; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Fox) {
                     single_fox_move((*e_buf), new_m, i, j);
@@ -445,6 +490,24 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
+
+    for (int k = 0; k < g_size - 1; k++) {
+        int gap_start = threads[k].end_y;
+        for (int block_row = 0; block_row < g_size; block_row++) {
+            int r_start = threads[block_row * g_size].start_x;
+            int r_end = threads[block_row * g_size].end_x;
+            for (int i = r_start; i < r_end; i++) {
+                for (int j = gap_start; j < gap_start + 2; j++) {
+                    if ((*e_buf).m[i][j].id == Fox) {
+                        single_fox_move((*e_buf), new_m, i, j);
+                    }
+                }
+            }
+        }
+    }
+
+    free(threads);
+
     #else
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
