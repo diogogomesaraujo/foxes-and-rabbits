@@ -17,6 +17,7 @@
 #define STARTING_AGE 0
 #define STARTING_GENS_WITHOUT_FOOD 0
 #define STARTING_GEN 0
+#define N_THREADS 4
 
 #define POSSIBLE_DIRECTIONS_LEN 4
 #define POSSIBLE_DIRECTIONS                                                    \
@@ -409,11 +410,10 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    int n_threads = omp_get_max_threads();
-    ThreadState* threads = thread_state_init(*e_buf, n_threads);
-    int g_size = (int)sqrt(n_threads);
+    ThreadState* threads = thread_state_init(*e_buf, N_THREADS);
+    int g_size = (int)sqrt(N_THREADS);
 
-    #pragma omp parallel
+    #pragma omp parallel num_threads(N_THREADS)
     {
         int tid = omp_get_thread_num();
         for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
@@ -466,9 +466,9 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    threads = thread_state_init(*e_buf, n_threads);
+    threads = thread_state_init(*e_buf, N_THREADS);
 
-    #pragma omp parallel
+    #pragma omp parallel num_threads(N_THREADS)
     {
         int tid = omp_get_thread_num();
         for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
