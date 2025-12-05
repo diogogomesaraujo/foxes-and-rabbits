@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -27,17 +29,16 @@
 typedef enum { Rabbit, Fox, Rock, None } CellID;
 
 typedef struct {
-    int x;
-    int y;
-} Direction;
-
-typedef struct {
     CellID id;
     int age;
     int gens_without_food;
     int gen_updated;
-    Direction n_dir; //next direction
 } Cell;
+
+typedef struct {
+    int x;
+    int y;
+} Direction;
 
 typedef struct {
     int gen_proc_rabbits;
@@ -51,6 +52,15 @@ typedef struct {
     Cell **m; // cell matrix
 } Environment;
 
+typedef struct {
+    int start_x; //inclusive
+    int start_y; //inclusive
+    int end_x; //exclusive
+    int end_y; //exclusive
+} Thread;
+
+Thread* thread_init(Environment e, int n_threads);
+
 int input_file_to_env(char *file_path, Environment *env_buf);
 void print_environment(Environment e, bool is_output);
 void print_matrix(Cell **m, int r, int c);
@@ -58,46 +68,59 @@ Cell **allocate_empty_cell_matrix(int r, int c);
 int assert_environment_equals(Environment e1, Environment e2);
 
 Cell cell_from_id(CellID id, int gen);
-
 bool cell_equals(Cell c1, Cell c2);
-
-
 
 Direction selecting_adjacent_cells(Environment e, int x, int y, Direction *d);
 Direction select_fox_direction(Environment e, int x, int y);
 Direction select_rabbit_direction(Environment e, int x, int y);
 
-int assert_environment_equals(Environment e1, Environment e2){
-    if (e1.gen_food_foxes != e2.gen_food_foxes ||
-        e1.gen_proc_foxes != e2.gen_proc_foxes ||
-        e1.gen_proc_rabbits != e2.gen_proc_rabbits ||
-        e1.c != e2.c ||
-        e1.r != e2.r ||
-        e1.n != e2.n){
-            fprintf(stderr, "Assertion failed\n");
-            fprintf(stderr, "e1: gpr=%d gpf=%d gff=%d r=%d c=%d n=%d\n",
-                    e1.gen_proc_rabbits, e1.gen_proc_foxes, e1.gen_food_foxes,
-                    e1.r, e1.c, e1.n);
-            fprintf(stderr, "e2: gpr=%d gpf=%d gff=%d r=%d c=%d n=%d\n",
-                    e2.gen_proc_rabbits, e2.gen_proc_foxes, e2.gen_food_foxes,
-                    e2.r, e2.c, e2.n);
-            return 1;
+//assume that e.r and e.c (same) are divisible by root of n_threads
+Thread* thread_init(Environment e, int n_threads) {
+    int g_size = (int)sqrt(n_threads);  // threads per side
+
+    if (g_size * g_size != n_threads) {
+        fprintf(stderr, "Error: n_threads (%d) must be a perfect square (1, 4, 9, 16, ...)\n", n_threads);
+        exit(1);
     }
 
-    for (int r = 0; r<e1.r; r++) {
-        for (int c = 0; c<e1.c; c++) {
-            if (e1.m[r][c].id != e2.m[r][c].id){
-                fprintf(stderr, "Assertion failed at [%d][%d] -> environment matrices didn't match\n", r, c);
-                return 1;
-            }
+    Thread* threads = (Thread*)malloc(sizeof(Thread) * n_threads);
+
+    int b_size = (e.r - 2 * (g_size - 1)) / g_size;
+
+    for (int tid = 0; tid < n_threads; tid++) {
+        int t_r = tid / g_size;
+        int t_col = tid % g_size;
+
+        threads[tid].start_x = t_r * (b_size + 2);
+        threads[tid].start_y = t_col * (b_size + 2);
+        threads[tid].end_x = threads[tid].start_x + b_size;
+        threads[tid].end_y = threads[tid].start_y + b_size;
+    }
+
+    return threads;
+}
+
+int assert_environment_equals(Environment e1, Environment e2) {
+    assert(e1.gen_food_foxes   == e2.gen_food_foxes   && "gen_food_foxes mismatch");
+    assert(e1.gen_proc_foxes   == e2.gen_proc_foxes   && "gen_proc_foxes mismatch");
+    assert(e1.gen_proc_rabbits == e2.gen_proc_rabbits && "gen_proc_rabbits mismatch");
+    assert(e1.c == e2.c && "column count (c) mismatch");
+    assert(e1.r == e2.r && "row count (r) mismatch");
+    assert(e1.n == e2.n && "generation (n) mismatch");
+
+    for (int r = 0; r < e1.r; r++) {
+        for (int c = 0; c < e1.c; c++) {
+            assert(e1.m[r][c].id == e2.m[r][c].id && "environment cell id mismatch");
         }
     }
+
     printf("Assertion passed -> input matches output\n");
     return 0;
 }
 
+
 Cell cell_from_id(CellID id, int gen) {
-    return (Cell){id, STARTING_AGE, STARTING_GENS_WITHOUT_FOOD, gen, NO_DIRECTION};
+    return (Cell){id, STARTING_AGE, STARTING_GENS_WITHOUT_FOOD, gen};
 }
 
 bool cell_equals(Cell c1, Cell c2){
@@ -260,7 +283,7 @@ Direction select_fox_direction(Environment e, int x, int y) {
 }
 
 int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
-    Direction d = e.m[x][y].n_dir;
+    Direction d = select_rabbit_direction(e, x, y);
 
     bool can_procreate = (e.m[x][y].age >= e.gen_proc_rabbits) && IT_HAS_DIRECTION(d);
 
@@ -302,7 +325,7 @@ int single_rabbit_move(Environment e, Cell **copy, int x, int y) {
 }
 
 int single_fox_move(Environment e, Cell **copy, int x, int y) {
-    Direction d = e.m[x][y].n_dir;
+    Direction d = select_fox_direction(e, x, y);
 
     bool should_die = (e.m[x][y].gens_without_food >= e.gen_food_foxes - 1) &&
                       (IT_HAS_DIRECTION(d) == false ||
@@ -386,16 +409,51 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
-    #endif
-    for (int i = 0; i < (*e_buf).r; i++) {
-        for (int j = 0; j < (*e_buf).c; j++) {
-            if ((*e_buf).m[i][j].id == Rabbit) {
-                (*e_buf).m[i][j].n_dir = select_rabbit_direction((*e_buf), i, j);
+    int n_threads = omp_get_max_threads();
+    Thread* threads = thread_init(*e_buf, n_threads);
+    int g_size = (int)sqrt(n_threads);
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
+            for (int j = threads[tid].start_y; j < threads[tid].end_y; j++) {
+                if ((*e_buf).m[i][j].id == Rabbit) {
+                    single_rabbit_move((*e_buf), new_m, i, j);
+                }
             }
         }
     }
 
+    for (int k = 0; k < g_size - 1; k++) {
+        int gap_start = threads[k * g_size].end_x;
+        for (int i = gap_start; i < gap_start + 2; i++) {
+            for (int j = 0; j < (*e_buf).c; j++) {
+                if ((*e_buf).m[i][j].id == Rabbit) {
+                    single_rabbit_move((*e_buf), new_m, i, j);
+                }
+            }
+        }
+    }
+
+    for (int t = 0; t < g_size - 1; t++) {
+        int gap_start = threads[t].end_y;
+        for (int block_row = 0; block_row < g_size; block_row++) {
+            int r_start = threads[block_row * g_size].start_x;
+            int r_end = threads[block_row * g_size].end_x;
+            for (int i = r_start; i < r_end; i++) {
+                for (int j = gap_start; j < gap_start + 2; j++) {
+                    if ((*e_buf).m[i][j].id == Rabbit) {
+                        single_rabbit_move((*e_buf), new_m, i, j);
+                    }
+                }
+            }
+        }
+    }
+
+    free(threads);
+
+    #else
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Rabbit) {
@@ -403,20 +461,54 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
+    #endif
 
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
-    #endif
-    for (int i = 0; i < (*e_buf).r; i++) {
-        for (int j = 0; j < (*e_buf).c; j++) {
-            if ((*e_buf).m[i][j].id == Fox) {
-                (*e_buf).m[i][j].n_dir = select_fox_direction((*e_buf), i, j);
+    threads = thread_init(*e_buf, n_threads);
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
+            for (int j = threads[tid].start_y; j < threads[tid].end_y; j++) {
+                if ((*e_buf).m[i][j].id == Fox) {
+                    single_fox_move((*e_buf), new_m, i, j);
+                }
             }
         }
     }
 
+    for (int k = 0; k < g_size - 1; k++) {
+        int gap_start = threads[k * g_size].end_x;
+        for (int i = gap_start; i < gap_start + 2; i++) {
+            for (int j = 0; j < (*e_buf).c; j++) {
+                if ((*e_buf).m[i][j].id == Fox) {
+                    single_fox_move((*e_buf), new_m, i, j);
+                }
+            }
+        }
+    }
+
+    for (int k = 0; k < g_size - 1; k++) {
+        int gap_start = threads[k].end_y;
+        for (int block_row = 0; block_row < g_size; block_row++) {
+            int r_start = threads[block_row * g_size].start_x;
+            int r_end = threads[block_row * g_size].end_x;
+            for (int i = r_start; i < r_end; i++) {
+                for (int j = gap_start; j < gap_start + 2; j++) {
+                    if ((*e_buf).m[i][j].id == Fox) {
+                        single_fox_move((*e_buf), new_m, i, j);
+                    }
+                }
+            }
+        }
+    }
+
+    free(threads);
+
+    #else
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Fox) {
@@ -424,6 +516,7 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
+    #endif
 
     destroy_cell_matrix((*e_buf).m, (*e_buf).r);
     (*e_buf).m = new_m;
