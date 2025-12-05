@@ -386,7 +386,7 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) collapse(2)
+    #pragma omp parallel for schedule(static)
     #endif
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
@@ -407,7 +407,7 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) collapse(2)
+    #pragma omp parallel for schedule(static)
     #endif
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
