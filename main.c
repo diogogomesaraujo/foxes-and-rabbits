@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -81,7 +79,8 @@ Direction select_rabbit_direction(Environment e, int x, int y);
 
 ThreadState* thread_state_init(Environment e, int n_threads) {
     ThreadState* threads = (ThreadState*)malloc(sizeof(ThreadState) * n_threads);
-    int best_rows = 1, best_cols = n_threads;
+
+    int best_r = 1, best_c = n_threads;
     int min_diff = n_threads - 1;
 
     for (int r = 1; r * r <= n_threads; r++) {
@@ -90,52 +89,53 @@ ThreadState* thread_state_init(Environment e, int n_threads) {
             int diff = abs(c - r);
             if (diff < min_diff) {
                 min_diff = diff;
-                best_rows = r;
-                best_cols = c;
+                best_r = r;
+                best_c = c;
             }
         }
     }
 
-    int g_rows = best_rows;
-    int g_cols = best_cols;
+    int g_rows = best_r;
+    int g_cols = best_c;
 
     int gap_size = 2;
-    int b_size_row, b_size_col;
+    int b_size_r, b_size_c;
+    int max_gap = (e.r < e.c) ? e.r : e.c;
+    bool found = false;
 
-    while (true) {
-        b_size_row = (e.r - (g_rows - 1) * gap_size) / g_rows;
-        b_size_col = (e.c - (g_cols - 1) * gap_size) / g_cols;
+    for (gap_size = 2; gap_size <= max_gap; gap_size++) {
+        b_size_r = (e.r - (g_rows - 1) * gap_size) / g_rows;
+        b_size_c = (e.c - (g_cols - 1) * gap_size) / g_cols;
 
-        int total_row = g_rows * b_size_row + (g_rows - 1) * gap_size;
-        int total_col = g_cols * b_size_col + (g_cols - 1) * gap_size;
+        int total_r = g_rows * b_size_r + (g_rows - 1) * gap_size;
+        int total_c = g_cols * b_size_c + (g_cols - 1) * gap_size;
 
-        if (b_size_row > 0 && b_size_col > 0 && total_row == e.r && total_col == e.c) {
+        if (b_size_r > 0 && b_size_c > 0 && total_r == e.r && total_c == e.c) {
+            found = true;
             break;
         }
-        gap_size++;
+    }
 
-        if (gap_size > e.r || gap_size > e.c) {
-            fprintf(stderr, "Could not partition grid properly for parallelization\n");
-            fprintf(stderr, "Grid -> %dx%d, Threads: %d (configured as %dx%d grid)\n",
-                    e.r, e.c, n_threads, g_rows, g_cols);
-            exit(1);
-        }
+    if (!found) {
+        fprintf(stderr, "Could not partition grid properly for parallelization\n");
+        fprintf(stderr, "Grid: %dx%d, Threads: %d (configured as %dx%d grid)\n",
+                e.r, e.c, n_threads, g_rows, g_cols);
+        exit(1);
     }
 
     for (int tid = 0; tid < n_threads; tid++) {
         int t_row = tid / g_cols;
         int t_col = tid % g_cols;
 
-        threads[tid].start_x = t_row * (b_size_row + gap_size);
-        threads[tid].start_y = t_col * (b_size_col + gap_size);
-        threads[tid].end_x = threads[tid].start_x + b_size_row;
-        threads[tid].end_y = threads[tid].start_y + b_size_col;
+        threads[tid].start_x = t_row * (b_size_r + gap_size);
+        threads[tid].start_y = t_col * (b_size_c + gap_size);
+        threads[tid].end_x = threads[tid].start_x + b_size_r;
+        threads[tid].end_y = threads[tid].start_y + b_size_c;
         threads[tid].gap_size = gap_size;
     }
 
     return threads;
 }
-
 
 int assert_environment_equals(Environment e1, Environment e2) {
     assert(e1.gen_food_foxes   == e2.gen_food_foxes   && "gen_food_foxes mismatch");
