@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -17,6 +15,7 @@
 #define STARTING_AGE 0
 #define STARTING_GENS_WITHOUT_FOOD 0
 #define STARTING_GEN 0
+
 #define N_THREADS 4
 
 #define POSSIBLE_DIRECTIONS_LEN 4
@@ -75,27 +74,28 @@ Direction selecting_adjacent_cells(Environment e, int x, int y, Direction *d);
 Direction select_fox_direction(Environment e, int x, int y);
 Direction select_rabbit_direction(Environment e, int x, int y);
 
-//assume that e.r and e.c (same) are divisible by root of n_threads
 ThreadState* thread_state_init(Environment e, int n_threads) {
-    int g_size = (int)sqrt(n_threads);  // threads per side
+    int gap_space = 2*(n_threads - 1); //total gap space, given the sum of all rows
+    int t_rows = e.r-gap_space;
 
-    if (g_size * g_size != n_threads) {
-        fprintf(stderr, "Error: n_threads (%d) must be a perfect square (1, 4, 9, 16, ...)\n", n_threads);
-        exit(1);
+    if (t_rows < n_threads) {
+            fprintf(stderr, "n_threads (%d) is too high for grid size %d rows\n", n_threads, e.r);
+            fprintf(stderr, "should be at most %d for this grid\n", (e.r + 2) / 3);
+            exit(1);
     }
 
     ThreadState* threads = (ThreadState*)malloc(sizeof(ThreadState) * n_threads);
 
-    int b_size = (e.r - 2 * (g_size - 1)) / g_size;
+    int b_size = t_rows / n_threads;
+    int remainder = t_rows % n_threads;
 
-    for (int tid = 0; tid < n_threads; tid++) {
-        int t_r = tid / g_size;
-        int t_col = tid % g_size;
+    int curr_row = 0;
 
-        threads[tid].start_x = t_r * (b_size + 2);
-        threads[tid].start_y = t_col * (b_size + 2);
-        threads[tid].end_x = threads[tid].start_x + b_size;
-        threads[tid].end_y = threads[tid].start_y + b_size;
+    for(int tid = 0; tid < n_threads; tid++){
+        threads[tid].start_x = curr_row;
+        int _b_size = b_size + (tid < remainder ? 1 : 0); //distribute remanider evenly
+        threads[tid].end_x = curr_row + _b_size;
+        curr_row = threads[tid].end_x+2; //account for gap
     }
 
     return threads;
@@ -411,23 +411,11 @@ int next_gen(Environment *e_buf) {
 
     #ifdef _OPENMP
     ThreadState* threads = thread_state_init(*e_buf, N_THREADS);
-    int g_size = (int)sqrt(N_THREADS);
 
     #pragma omp parallel num_threads(N_THREADS)
     {
         int tid = omp_get_thread_num();
         for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
-            for (int j = threads[tid].start_y; j < threads[tid].end_y; j++) {
-                if ((*e_buf).m[i][j].id == Rabbit) {
-                    single_rabbit_move((*e_buf), new_m, i, j);
-                }
-            }
-        }
-    }
-
-    for (int k = 0; k < g_size - 1; k++) {
-        int gap_start = threads[k * g_size].end_x;
-        for (int i = gap_start; i < gap_start + 2; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Rabbit) {
                     single_rabbit_move((*e_buf), new_m, i, j);
@@ -436,16 +424,12 @@ int next_gen(Environment *e_buf) {
         }
     }
 
-    for (int t = 0; t < g_size - 1; t++) {
-        int gap_start = threads[t].end_y;
-        for (int block_row = 0; block_row < g_size; block_row++) {
-            int r_start = threads[block_row * g_size].start_x;
-            int r_end = threads[block_row * g_size].end_x;
-            for (int i = r_start; i < r_end; i++) {
-                for (int j = gap_start; j < gap_start + 2; j++) {
-                    if ((*e_buf).m[i][j].id == Rabbit) {
-                        single_rabbit_move((*e_buf), new_m, i, j);
-                    }
+    for (int t = 0; t < N_THREADS - 1; t++) {
+        int gap_start = threads[t].end_x;
+        for (int i = gap_start; i < gap_start + 2; i++) {
+            for (int j = 0; j < (*e_buf).c; j++) {
+                if ((*e_buf).m[i][j].id == Rabbit) {
+                    single_rabbit_move((*e_buf), new_m, i, j);
                 }
             }
         }
@@ -472,17 +456,6 @@ int next_gen(Environment *e_buf) {
     {
         int tid = omp_get_thread_num();
         for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
-            for (int j = threads[tid].start_y; j < threads[tid].end_y; j++) {
-                if ((*e_buf).m[i][j].id == Fox) {
-                    single_fox_move((*e_buf), new_m, i, j);
-                }
-            }
-        }
-    }
-
-    for (int k = 0; k < g_size - 1; k++) {
-        int gap_start = threads[k * g_size].end_x;
-        for (int i = gap_start; i < gap_start + 2; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Fox) {
                     single_fox_move((*e_buf), new_m, i, j);
@@ -491,16 +464,12 @@ int next_gen(Environment *e_buf) {
         }
     }
 
-    for (int k = 0; k < g_size - 1; k++) {
-        int gap_start = threads[k].end_y;
-        for (int block_row = 0; block_row < g_size; block_row++) {
-            int r_start = threads[block_row * g_size].start_x;
-            int r_end = threads[block_row * g_size].end_x;
-            for (int i = r_start; i < r_end; i++) {
-                for (int j = gap_start; j < gap_start + 2; j++) {
-                    if ((*e_buf).m[i][j].id == Fox) {
-                        single_fox_move((*e_buf), new_m, i, j);
-                    }
+    for (int t = 0; t < N_THREADS - 1; t++) {
+        int gap_start = threads[t].end_x;
+        for (int i = gap_start; i < gap_start + 2; i++) {
+            for (int j = 0; j < (*e_buf).c; j++) {
+                if ((*e_buf).m[i][j].id == Fox) {
+                    single_fox_move((*e_buf), new_m, i, j);
                 }
             }
         }
