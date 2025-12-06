@@ -16,7 +16,9 @@
 #define STARTING_GENS_WITHOUT_FOOD 0
 #define STARTING_GEN 0
 
+#ifndef N_THREADS
 #define N_THREADS 4
+#endif
 
 #define POSSIBLE_DIRECTIONS_LEN 4
 #define POSSIBLE_DIRECTIONS                                                    \
