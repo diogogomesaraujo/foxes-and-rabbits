@@ -60,6 +60,9 @@ typedef struct {
     int n;    // starting num of enteties
     Cell **m; // cell matrix
     Cell **new_m; // aux cell matrix
+    #ifdef _OPENMP
+    ThreadState *threads; // thread states
+    #endif
 } Environment;
 
 ThreadState* thread_state_init(Environment e, int n_threads);
@@ -166,6 +169,11 @@ int env_destroy(Environment e) {
     if (e.new_m != NULL) {
         destroy_cell_matrix(e.new_m, e.r);
     }
+    #ifdef _OPENMP
+    if (e.threads != NULL) {
+        free(e.threads);
+    }
+    #endif
     return 0;
 }
 
@@ -200,6 +208,10 @@ int input_file_to_env(char *file_path, Environment *env_buf) {
     }
 
     (*env_buf).new_m = allocate_empty_cell_matrix((*env_buf).r, (*env_buf).c);
+
+    #ifdef _OPENMP
+    (*env_buf).threads = thread_state_init(*env_buf, N_THREADS);
+    #endif
 
     free(line_temp);
     fclose(file);
@@ -420,12 +432,10 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).m, (*e_buf).new_m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    ThreadState* threads = thread_state_init(*e_buf, N_THREADS);
-
     #pragma omp parallel num_threads(N_THREADS)
     {
         int tid = omp_get_thread_num();
-        for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
+        for (int i = (*e_buf).threads[tid].start_x; i < (*e_buf).threads[tid].end_x; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Rabbit) {
                     single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
@@ -435,7 +445,7 @@ int next_gen(Environment *e_buf) {
     }
 
     for (int t = 0; t < N_THREADS - 1; t++) {
-        int gap_start = threads[t].end_x;
+        int gap_start = (*e_buf).threads[t].end_x;
         for (int i = gap_start; i < gap_start + 2; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Rabbit) {
@@ -444,8 +454,6 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
-
-    free(threads);
 
     #else
     for (int i = 0; i < (*e_buf).r; i++) {
@@ -460,12 +468,10 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    threads = thread_state_init(*e_buf, N_THREADS);
-
     #pragma omp parallel num_threads(N_THREADS)
     {
         int tid = omp_get_thread_num();
-        for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
+        for (int i = (*e_buf).threads[tid].start_x; i < (*e_buf).threads[tid].end_x; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Fox) {
                     single_fox_move((*e_buf), (*e_buf).new_m, i, j);
@@ -475,7 +481,7 @@ int next_gen(Environment *e_buf) {
     }
 
     for (int t = 0; t < N_THREADS - 1; t++) {
-        int gap_start = threads[t].end_x;
+        int gap_start = (*e_buf).threads[t].end_x;
         for (int i = gap_start; i < gap_start + 2; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Fox) {
@@ -484,8 +490,6 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
-
-    free(threads);
 
     #else
     for (int i = 0; i < (*e_buf).r; i++) {
