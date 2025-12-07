@@ -13,8 +13,17 @@ all: omp
 omp: $(SRC)
 	$(CC) $(CFLAGS_BASE) $(CFLAGS_OMP) -DN_THREADS=$(N_THREADS) -o $(OUT) $(SRC) $(LDFLAGS_OMP)
 
+omp_allgen: $(SRC)
+	$(CC) -D_ALLGEN $(CFLAGS_BASE) $(CFLAGS_OMP) -DN_THREADS=$(N_THREADS) -o $(OUT) $(SRC) $(LDFLAGS_OMP)
+
+omp_bench: $(SRC)
+	$(CC) -D_BENCH $(CFLAGS_BASE) $(CFLAGS_OMP) -DN_THREADS=$(N_THREADS) -o $(OUT) $(SRC) $(LDFLAGS_OMP)
+
 seq: $(SRC)
 	$(CC) $(CFLAGS_BASE) -o $(OUT) $(SRC)
+
+bench: $(SRC)
+	$(CC) -D_BENCH $(CFLAGS_BASE) -o $(OUT) $(SRC)
 
 allgen: $(SRC)
 	$(CC) -D_ALLGEN $(CFLAGS_BASE) -o $(OUT) $(SRC)

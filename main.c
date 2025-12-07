@@ -11,6 +11,8 @@
 #include <time.h>
 #endif
 
+#define BENCH_FILE_PATH "bench.csv"
+
 #define STR_SIZE 100
 #define STARTING_AGE 0
 #define STARTING_GENS_WITHOUT_FOOD 0
@@ -79,6 +81,8 @@ bool cell_equals(Cell c1, Cell c2);
 Direction selecting_adjacent_cells(Environment e, int x, int y, Direction *d);
 Direction select_fox_direction(Environment e, int x, int y);
 Direction select_rabbit_direction(Environment e, int x, int y);
+
+int bench(int matrix_size, double execution_time, int number_of_threads, char* file_path);
 
 ThreadState* thread_state_init(Environment e, int n_threads) {
     int gap_space = 2*(n_threads - 1); //total gap space, given the sum of all rows
@@ -671,6 +675,13 @@ void write_environment(Environment e, FILE *file) {
     fprintf(file, "\n\n");
 }
 
+int bench(int matrix_size, double execution_time, int number_of_threads, char* file_path) {
+    FILE *bench_file = fopen(file_path, "a");
+    fprintf(bench_file, "%d,%d,%f\n", matrix_size, number_of_threads, execution_time);
+    fclose(bench_file);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     Environment e;
     if (argc != 3)
@@ -719,16 +730,26 @@ int main(int argc, char **argv) {
 
     assert_environment_equals(e,out);
 
+    #ifdef _OPENMP
+    double execution_time = end - start;
+    printf("Took %f seconds\n", execution_time);
+    #else
+    double execution_time = (double)(end - start)/CLOCKS_PER_SEC;
+    printf("Took %f seconds\n", execution_time);
+    #endif
+
+    #ifdef _BENCH
+    #ifdef _OPENMP
+    bench(e.r, execution_time, N_THREADS, BENCH_FILE_PATH);
+    #else
+    bench(e.r, execution_time, 1, BENCH_FILE_PATH);
+    #endif
+    #endif
+
     env_destroy(e);
 
     #ifdef _ALLGEN
     fclose(output_file);
-    #endif
-
-    #ifdef _OPENMP
-    printf("Took %f seconds\n", end - start);
-    #else
-    printf("Took %f seconds\n", (double)(end - start)/CLOCKS_PER_SEC);
     #endif
 
     return 0;

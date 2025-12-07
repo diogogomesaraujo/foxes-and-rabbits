@@ -4,3 +4,7 @@ run
 ecosystem_examples/allgen100x100
 my_allgen
 .clangd
+bench.csv
+efficiency.csv
+speedup.csv
+execution_times.csv
