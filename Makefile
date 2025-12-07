@@ -19,6 +19,9 @@ seq: $(SRC)
 allgen: $(SRC)
 	$(CC) -D_ALLGEN $(CFLAGS_BASE) -o $(OUT) $(SRC)
 
+omp_allgen: $(SRC)
+	$(CC) -D_ALLGEN $(CFLAGS_BASE) $(CFLAGS_OMP) -DN_THREADS=$(N_THREADS) -o $(OUT) $(SRC) $(LDFLAGS_OMP)
+
 clean:
 	rm -f $(OUT)
 

@@ -60,6 +60,9 @@ typedef struct {
     int n;    // starting num of enteties
     Cell **m; // cell matrix
     Cell **new_m; // aux cell matrix
+    #ifdef _OPENMP
+    ThreadState *thread_states;
+    #endif
 } Environment;
 
 ThreadState* thread_state_init(Environment e, int n_threads);
@@ -163,6 +166,11 @@ int env_destroy(Environment e) {
     if (e.new_m != NULL) {
         destroy_cell_matrix(e.new_m, e.r);
     }
+    #ifdef _OPENMP
+    if (e.thread_states != NULL) {
+        free (e.thread_states);
+    }
+    #endif
     return 0;
 }
 
@@ -197,6 +205,9 @@ int input_file_to_env(char *file_path, Environment *env_buf) {
     }
 
     (*env_buf).new_m = allocate_empty_cell_matrix((*env_buf).r, (*env_buf).c);
+    #ifdef _OPENMP
+    (*env_buf).thread_states = thread_state_init(*env_buf, N_THREADS);
+    #endif
 
     free(line_temp);
     fclose(file);
@@ -414,35 +425,43 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
 }
 
 int next_gen(Environment *e_buf) {
+    #ifdef _OPENMP
+    #pragma omp master
+    {
+        copy_cell_matrix((*e_buf).m, (*e_buf).new_m, (*e_buf).r, (*e_buf).c);
+    }
+    #pragma omp barrier
+    #else
     copy_cell_matrix((*e_buf).m, (*e_buf).new_m, (*e_buf).r, (*e_buf).c);
+    #endif
 
     #ifdef _OPENMP
-    ThreadState* threads = thread_state_init(*e_buf, N_THREADS);
+    int tid = omp_get_thread_num();
+    for (int i = (*e_buf).thread_states[tid].start_x; i < (*e_buf).thread_states[tid].end_x; i++) {
+        for (int j = 0; j < (*e_buf).c; j++) {
+            if ((*e_buf).m[i][j].id == Rabbit) {
+                single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
+            }
+        }
+    }
 
-    #pragma omp parallel num_threads(N_THREADS)
+    #pragma omp barrier
+
+    #pragma omp master
     {
-        int tid = omp_get_thread_num();
-        for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
-            for (int j = 0; j < (*e_buf).c; j++) {
-                if ((*e_buf).m[i][j].id == Rabbit) {
-                    single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
+        for (int t = 0; t < N_THREADS - 1; t++) {
+            int gap_start = (*e_buf).thread_states[t].end_x;
+            for (int i = gap_start; i < gap_start + 2; i++) {
+                for (int j = 0; j < (*e_buf).c; j++) {
+                    if ((*e_buf).m[i][j].id == Rabbit) {
+                        single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
+                    }
                 }
             }
         }
     }
 
-    for (int t = 0; t < N_THREADS - 1; t++) {
-        int gap_start = threads[t].end_x;
-        for (int i = gap_start; i < gap_start + 2; i++) {
-            for (int j = 0; j < (*e_buf).c; j++) {
-                if ((*e_buf).m[i][j].id == Rabbit) {
-                    single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
-                }
-            }
-        }
-    }
-
-    free(threads);
+    #pragma omp barrier
 
     #else
     for (int i = 0; i < (*e_buf).r; i++) {
@@ -454,36 +473,49 @@ int next_gen(Environment *e_buf) {
     }
     #endif
 
+    #ifdef _OPENMP
+    #pragma omp master
+    {
+        copy_cell_matrix((*e_buf).new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
+    }
+    #pragma omp barrier
+    #else
     copy_cell_matrix((*e_buf).new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
+    #endif
 
     #ifdef _OPENMP
-    threads = thread_state_init(*e_buf, N_THREADS);
+    tid = omp_get_thread_num();
+    for (int i = (*e_buf).thread_states[tid].start_x; i < (*e_buf).thread_states[tid].end_x; i++) {
+        for (int j = 0; j < (*e_buf).c; j++) {
+            if ((*e_buf).m[i][j].id == Fox) {
+                single_fox_move((*e_buf), (*e_buf).new_m, i, j);
+            }
+        }
+    }
 
-    #pragma omp parallel num_threads(N_THREADS)
+    #pragma omp barrier
+
+    #pragma omp master
     {
-        int tid = omp_get_thread_num();
-        for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
-            for (int j = 0; j < (*e_buf).c; j++) {
-                if ((*e_buf).m[i][j].id == Fox) {
-                    single_fox_move((*e_buf), (*e_buf).new_m, i, j);
+        for (int t = 0; t < N_THREADS - 1; t++) {
+            int gap_start = (*e_buf).thread_states[t].end_x;
+            for (int i = gap_start; i < gap_start + 2; i++) {
+                for (int j = 0; j < (*e_buf).c; j++) {
+                    if ((*e_buf).m[i][j].id == Fox) {
+                        single_fox_move((*e_buf), (*e_buf).new_m, i, j);
+                    }
                 }
             }
         }
+
+        Cell **aux = (*e_buf).m;
+        (*e_buf).m = (*e_buf).new_m;
+        (*e_buf).new_m = aux;
+
+        (*e_buf).g++;
     }
 
-    for (int t = 0; t < N_THREADS - 1; t++) {
-        int gap_start = threads[t].end_x;
-        for (int i = gap_start; i < gap_start + 2; i++) {
-            for (int j = 0; j < (*e_buf).c; j++) {
-                if ((*e_buf).m[i][j].id == Fox) {
-                    single_fox_move((*e_buf), (*e_buf).new_m, i, j);
-                }
-            }
-        }
-    }
-
-    free(threads);
-
+    #pragma omp barrier
     #else
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
@@ -492,13 +524,13 @@ int next_gen(Environment *e_buf) {
             }
         }
     }
-    #endif
 
     Cell **aux = (*e_buf).m;
     (*e_buf).m = (*e_buf).new_m;
     (*e_buf).new_m = aux;
 
     (*e_buf).g++;
+    #endif
     return 0;
 }
 
@@ -688,11 +720,22 @@ int main(int argc, char **argv) {
     clock_t start = (double) clock();
     #endif
 
-    for (int i = 0; i < e.n_gen; i++) {
-        next_gen(&e);
-        #ifdef _ALLGEN
-        write_environment(e, output_file);
-        #endif
+    #pragma omp parallel num_threads(N_THREADS) shared(e)
+    {
+        for (int i = 0; i < e.n_gen; i++) {
+            next_gen(&e);
+            #ifdef _ALLGEN
+            #ifdef _OPENMP
+            #pragma omp master
+            {
+                write_environment(e, output_file);
+            }
+            #pragma omp barrier
+            #else
+            write_environment(e, output_file);
+            #endif
+            #endif
+        }
     }
     update_n(&e);
 
