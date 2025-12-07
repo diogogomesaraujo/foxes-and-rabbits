@@ -43,6 +43,13 @@ typedef struct {
 } Direction;
 
 typedef struct {
+    int start_x; //inclusive
+    int start_y; //inclusive
+    int end_x; //exclusive
+    int end_y; //exclusive
+} ThreadState;
+
+typedef struct {
     int gen_proc_rabbits;
     int gen_proc_foxes;
     int gen_food_foxes;
@@ -52,14 +59,8 @@ typedef struct {
     int c;    // cols
     int n;    // starting num of enteties
     Cell **m; // cell matrix
+    Cell **new_m; // aux cell matrix
 } Environment;
-
-typedef struct {
-    int start_x; //inclusive
-    int start_y; //inclusive
-    int end_x; //exclusive
-    int end_y; //exclusive
-} ThreadState;
 
 ThreadState* thread_state_init(Environment e, int n_threads);
 
@@ -159,6 +160,9 @@ int env_destroy(Environment e) {
     if (e.m != NULL) {
         destroy_cell_matrix(e.m, e.r);
     }
+    if (e.new_m != NULL) {
+        destroy_cell_matrix(e.new_m, e.r);
+    }
     return 0;
 }
 
@@ -191,6 +195,8 @@ int input_file_to_env(char *file_path, Environment *env_buf) {
         if (strcmp(line_temp, "FOX") == 0)
             (*env_buf).m[x_temp][y_temp] = cell_from_id(Fox, STARTING_GEN);
     }
+
+    (*env_buf).new_m = allocate_empty_cell_matrix((*env_buf).r, (*env_buf).c);
 
     free(line_temp);
     fclose(file);
@@ -408,8 +414,7 @@ int single_fox_move(Environment e, Cell **copy, int x, int y) {
 }
 
 int next_gen(Environment *e_buf) {
-    Cell **new_m = allocate_empty_cell_matrix((*e_buf).r, (*e_buf).c);
-    copy_cell_matrix((*e_buf).m, new_m, (*e_buf).r, (*e_buf).c);
+    copy_cell_matrix((*e_buf).m, (*e_buf).new_m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
     ThreadState* threads = thread_state_init(*e_buf, N_THREADS);
@@ -420,7 +425,7 @@ int next_gen(Environment *e_buf) {
         for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Rabbit) {
-                    single_rabbit_move((*e_buf), new_m, i, j);
+                    single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
                 }
             }
         }
@@ -431,7 +436,7 @@ int next_gen(Environment *e_buf) {
         for (int i = gap_start; i < gap_start + 2; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Rabbit) {
-                    single_rabbit_move((*e_buf), new_m, i, j);
+                    single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
                 }
             }
         }
@@ -443,13 +448,13 @@ int next_gen(Environment *e_buf) {
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Rabbit) {
-                single_rabbit_move((*e_buf), new_m, i, j);
+                single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
             }
         }
     }
     #endif
 
-    copy_cell_matrix(new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
+    copy_cell_matrix((*e_buf).new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
     threads = thread_state_init(*e_buf, N_THREADS);
@@ -460,7 +465,7 @@ int next_gen(Environment *e_buf) {
         for (int i = threads[tid].start_x; i < threads[tid].end_x; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Fox) {
-                    single_fox_move((*e_buf), new_m, i, j);
+                    single_fox_move((*e_buf), (*e_buf).new_m, i, j);
                 }
             }
         }
@@ -471,7 +476,7 @@ int next_gen(Environment *e_buf) {
         for (int i = gap_start; i < gap_start + 2; i++) {
             for (int j = 0; j < (*e_buf).c; j++) {
                 if ((*e_buf).m[i][j].id == Fox) {
-                    single_fox_move((*e_buf), new_m, i, j);
+                    single_fox_move((*e_buf), (*e_buf).new_m, i, j);
                 }
             }
         }
@@ -483,14 +488,15 @@ int next_gen(Environment *e_buf) {
     for (int i = 0; i < (*e_buf).r; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Fox) {
-                single_fox_move((*e_buf), new_m, i, j);
+                single_fox_move((*e_buf), (*e_buf).new_m, i, j);
             }
         }
     }
     #endif
 
-    destroy_cell_matrix((*e_buf).m, (*e_buf).r);
-    (*e_buf).m = new_m;
+    Cell **aux = (*e_buf).m;
+    (*e_buf).m = (*e_buf).new_m;
+    (*e_buf).new_m = aux;
 
     (*e_buf).g++;
     return 0;
@@ -682,7 +688,6 @@ int main(int argc, char **argv) {
     clock_t start = (double) clock();
     #endif
 
-
     for (int i = 0; i < e.n_gen; i++) {
         next_gen(&e);
         #ifdef _ALLGEN
@@ -706,6 +711,8 @@ int main(int argc, char **argv) {
     //print_environment(out, true);
 
     assert_environment_equals(e,out);
+
+    env_destroy(e);
 
     #ifdef _ALLGEN
     fclose(output_file);
