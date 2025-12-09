@@ -159,7 +159,7 @@ int destroy_cell_matrix(Cell **m, int r) {
 
 int copy_cell_matrix(Cell **m, Cell **m_buf, int r, int c) {
     #ifdef _OPENMP
-    #pragma parallel for schedule(static) shared(m_buf, m)
+    #pragma parallel for num_threads(N_THREADS) schedule(static) shared(m_buf, m)
     #endif
     for (int i = 0; i < r; i++)
         memcpy(m_buf[i], m[i], sizeof(Cell) * c);
@@ -436,7 +436,7 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).m, (*e_buf).new_m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    #pragma omp parallel num_threads(N_THREADS)
+    #pragma omp parallel num_threads(N_THREADS) shared(e_buf)
     {
         int tid = omp_get_thread_num();
         for (int i = (*e_buf).threads[tid].start_x; i < (*e_buf).threads[tid].end_x; i++) {
@@ -472,7 +472,7 @@ int next_gen(Environment *e_buf) {
     copy_cell_matrix((*e_buf).new_m, (*e_buf).m, (*e_buf).r, (*e_buf).c);
 
     #ifdef _OPENMP
-    #pragma omp parallel num_threads(N_THREADS)
+    #pragma omp parallel num_threads(N_THREADS) shared(e_buf)
     {
         int tid = omp_get_thread_num();
         for (int i = (*e_buf).threads[tid].start_x; i < (*e_buf).threads[tid].end_x; i++) {
