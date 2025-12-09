@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -22,8 +21,6 @@
 #ifndef N_THREADS
 #define N_THREADS 4
 #endif
-
-#define N_THREADS_SQUARE_ROOT (int) sqrt(N_THREADS)
 
 #define POSSIBLE_DIRECTIONS_LEN 4
 #define POSSIBLE_DIRECTIONS                                                    \
@@ -451,7 +448,6 @@ int next_gen(Environment *e_buf) {
         }
     }
 
-    #pragma omp parallel for schedule(static) num_threads(N_THREADS_SQUARE_ROOT)
     for (int t = 0; t < N_THREADS - 1; t++) {
         int gap_start = (*e_buf).threads[t].end_x;
         for (int i = gap_start; i < gap_start + 2; i++) {
@@ -488,7 +484,6 @@ int next_gen(Environment *e_buf) {
         }
     }
 
-    #pragma omp parallel for schedule(static) num_threads(N_THREADS_SQUARE_ROOT)
     for (int t = 0; t < N_THREADS - 1; t++) {
         int gap_start = (*e_buf).threads[t].end_x;
         for (int i = gap_start; i < gap_start + 2; i++) {
