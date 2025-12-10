@@ -489,7 +489,6 @@ int next_gen(Environment *e_buf) {
     #endif
 
     #ifdef _OPENMP
-    tid = omp_get_thread_num();
     for (int i = (*e_buf).thread_states[tid].start_x; i < (*e_buf).thread_states[tid].end_x; i++) {
         for (int j = 0; j < (*e_buf).c; j++) {
             if ((*e_buf).m[i][j].id == Fox) {
