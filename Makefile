@@ -3,7 +3,7 @@ CFLAGS_BASE = -O3
 CFLAGS_OMP = -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
 LDFLAGS_OMP = -L/opt/homebrew/opt/libomp/lib -lomp
 SRC = main.c
-OUT = a.out
+OUT = ecosystem
 
 # Default N_THREADS value
 N_THREADS ?= 4
