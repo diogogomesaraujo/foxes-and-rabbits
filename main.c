@@ -20,6 +20,8 @@
 #define N_THREADS 4
 #endif
 
+#define N_THREADS_SQRT (int) sqrt(N_THREADS)
+
 #define POSSIBLE_DIRECTIONS_LEN 4
 #define POSSIBLE_DIRECTIONS                                                    \
     {(Direction){-1, 0}, (Direction){0, 1}, (Direction){1, 0},                 \
@@ -453,15 +455,12 @@ int next_gen(Environment *e_buf) {
 
     #pragma omp barrier
 
-    #pragma omp master
-    {
-        for (int t = 0; t < N_THREADS - 1; t++) {
-            int gap_start = (*e_buf).thread_states[t].end_x;
-            for (int i = gap_start; i < gap_start + 2; i++) {
-                for (int j = 0; j < (*e_buf).c; j++) {
-                    if ((*e_buf).m[i][j].id == Rabbit) {
-                        single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
-                    }
+    if (tid < N_THREADS - 1) {
+        int gap_start = (*e_buf).thread_states[tid].end_x;
+        for (int i = gap_start; i < gap_start + 2; i++) {
+            for (int j = 0; j < (*e_buf).c; j++) {
+                if ((*e_buf).m[i][j].id == Rabbit) {
+                    single_rabbit_move((*e_buf), (*e_buf).new_m, i, j);
                 }
             }
         }
@@ -501,19 +500,21 @@ int next_gen(Environment *e_buf) {
 
     #pragma omp barrier
 
-    #pragma omp master
-    {
-        for (int t = 0; t < N_THREADS - 1; t++) {
-            int gap_start = (*e_buf).thread_states[t].end_x;
-            for (int i = gap_start; i < gap_start + 2; i++) {
-                for (int j = 0; j < (*e_buf).c; j++) {
-                    if ((*e_buf).m[i][j].id == Fox) {
-                        single_fox_move((*e_buf), (*e_buf).new_m, i, j);
-                    }
+    if (tid < N_THREADS - 1) {
+        int gap_start = (*e_buf).thread_states[tid].end_x;
+        for (int i = gap_start; i < gap_start + 2; i++) {
+            for (int j = 0; j < (*e_buf).c; j++) {
+                if ((*e_buf).m[i][j].id == Fox) {
+                    single_fox_move((*e_buf), (*e_buf).new_m, i, j);
                 }
             }
         }
+    }
 
+    #pragma omp barrier
+
+    #pragma omp master
+    {
         Cell **aux = (*e_buf).m;
         (*e_buf).m = (*e_buf).new_m;
         (*e_buf).new_m = aux;
