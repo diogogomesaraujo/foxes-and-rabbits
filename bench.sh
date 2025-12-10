@@ -1,5 +1,5 @@
 SIZES=("5x5" "10x10" "20x20" "100x100" "200x200")
-THREADS=(1 2 4 8)
+THREADS=(1 2 4 8 16)
 RUNS=10
 
 > bench.csv
