@@ -159,7 +159,7 @@ int destroy_cell_matrix(Cell **m, int r) {
 
 int copy_cell_matrix(Cell **m, Cell **m_buf, int r, int c) {
     #ifdef _OPENMP
-    #pragma parallel for num_threads(N_THREADS) schedule(static) shared(m_buf, m)
+    #pragma omp parallel for num_threads(N_THREADS) schedule(static) shared(m_buf, m)
     #endif
     for (int i = 0; i < r; i++)
         memcpy(m_buf[i], m[i], sizeof(Cell) * c);
