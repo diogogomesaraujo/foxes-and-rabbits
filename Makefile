@@ -1,8 +1,7 @@
-CC = gcc
+CC = clang
 CFLAGS_BASE = -O3
-CFLAGS_OMP = -fopenmp
-LDFLAGS_OMP = -fopenmp
-
+CFLAGS_OMP = -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
+LDFLAGS_OMP = -L/opt/homebrew/opt/libomp/lib -lomp
 SRC = main.c
 OUT = ecosystem
 
